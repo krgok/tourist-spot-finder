@@ -41,6 +41,7 @@ export class MapController {
     this.infoWindow = null;
     this.AdvancedMarkerElement = null;
     this.PinElement = null;
+    this.routePolyline = null;
   }
 
   async init(apiKey) {
@@ -49,6 +50,7 @@ export class MapController {
     const markerLib = await google.maps.importLibrary('marker');
     this.AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
     this.PinElement = markerLib.PinElement;
+    await google.maps.importLibrary('geometry');
 
     this.map = new Map(document.getElementById('map'), {
       center: { lat: 35.6812, lng: 139.7671 },
@@ -121,6 +123,28 @@ export class MapController {
     if (!bounds.isEmpty()) {
       this.map.fitBounds(bounds);
     }
+  }
+
+  clearRoute() {
+    if (this.routePolyline) {
+      this.routePolyline.setMap(null);
+      this.routePolyline = null;
+    }
+  }
+
+  renderRoute(encodedPolyline) {
+    this.clearRoute();
+    const path = google.maps.geometry.encoding.decodePath(encodedPolyline);
+    this.routePolyline = new google.maps.Polyline({
+      map: this.map,
+      path,
+      strokeColor: '#0d47a1',
+      strokeOpacity: 0.8,
+      strokeWeight: 4,
+    });
+    const bounds = new google.maps.LatLngBounds();
+    path.forEach((point) => bounds.extend(point));
+    this.map.fitBounds(bounds);
   }
 
   focusPlace(index, place) {

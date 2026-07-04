@@ -1,7 +1,12 @@
 export const STORAGE_KEYS = {
   API_KEY: 'tourist-app.apiKey',
-  CLIENT_ID: 'tourist-app.clientId',
 };
+
+// Supabaseのプロジェクト固有情報。anon keyはRLSで保護されている前提の公開値のため
+// リポジトリにコミットして問題ない。Supabaseプロジェクト作成後にここを実際の値へ置き換える。
+export const SUPABASE_URL = 'https://qosrxcrbjlvrbuyybqhr.supabase.co';
+export const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvc3J4Y3Jiamx2cmJ1eXlicWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNjAxNjYsImV4cCI6MjA5NzYzNjE2Nn0.4RVVC_YN-KUYUcWmSl1S_zdIB4XdYuDxrMkFefwgqfQ';
 
 export const PLACE_FIELD_MASK = [
   'places.id',
