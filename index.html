@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>観光地調査アプリ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <h1>観光地調査アプリ</h1>
+  <div id="auth-area" class="auth-area">
+    <div id="g_id_signin_container"></div>
+    <div id="user-info" class="user-info hidden">
+      <img id="user-avatar" class="user-avatar" alt="avatar">
+      <span id="user-name"></span>
+      <button id="logout-btn" class="btn btn-secondary">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main class="app-main">
+  <section id="settings-panel" class="panel">
+    <h2>API設定</h2>
+    <p class="hint">
+      観光地情報の取得には Google Maps / Places API のAPIキーが必要です。
+      ログインには Google OAuth クライアントIDが必要です。
+      いずれもご自身の Google Cloud Console で取得し、以下に入力してください（ブラウザの localStorage にのみ保存されます）。
+    </p>
+    <div class="form-row">
+      <label for="api-key-input">Google Maps APIキー</label>
+      <div class="input-with-toggle">
+        <input type="password" id="api-key-input" placeholder="AIza...">
+        <button type="button" id="toggle-api-key" class="btn btn-small">表示</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label for="client-id-input">Google OAuth クライアントID</label>
+      <div class="input-with-toggle">
+        <input type="password" id="client-id-input" placeholder="xxxx.apps.googleusercontent.com">
+        <button type="button" id="toggle-client-id" class="btn btn-small">表示</button>
+      </div>
+    </div>
+    <div class="form-row-buttons">
+      <button id="save-settings-btn" class="btn btn-primary">保存</button>
+      <button id="clear-settings-btn" class="btn btn-secondary">削除</button>
+    </div>
+    <p id="settings-status" class="status-msg"></p>
+  </section>
+
+  <section id="search-panel" class="panel">
+    <h2>周辺検索</h2>
+    <div class="form-row">
+      <label for="radius-select">検索半径</label>
+      <select id="radius-select">
+        <option value="1000">1km</option>
+        <option value="2000" selected>2km</option>
+        <option value="5000">5km</option>
+        <option value="10000">10km</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label for="count-select">表示件数</label>
+      <select id="count-select">
+        <option value="5">5件</option>
+        <option value="10" selected>10件</option>
+        <option value="20">20件</option>
+      </select>
+    </div>
+    <button id="search-btn" class="btn btn-primary" disabled>現在地から観光地を検索</button>
+    <p id="search-status" class="status-msg"></p>
+  </section>
+
+  <section class="results-layout">
+    <div id="map" class="map-container"></div>
+    <div id="results-list" class="results-list"></div>
+  </section>
+</main>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

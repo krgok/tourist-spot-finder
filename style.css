@@ -1,0 +1,228 @@
+:root {
+  --primary: #1a73e8;
+  --primary-dark: #0d47a1;
+  --bg: #f5f6f8;
+  --panel-bg: #ffffff;
+  --border: #dcdfe3;
+  --text: #202124;
+  --text-secondary: #5f6368;
+  --danger: #d93025;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.app-header h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.auth-area { display: flex; align-items: center; }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-info.hidden { display: none; }
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.app-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.panel h2 {
+  margin-top: 0;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.form-row {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-row label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-row select,
+.form-row input {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.input-with-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.input-with-toggle input { flex: 1; }
+
+.form-row-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:disabled {
+  background: #a0c3ee;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #eee;
+  color: var(--text);
+}
+
+.btn-small {
+  padding: 8px 10px;
+  background: #eee;
+}
+
+#search-btn { width: 100%; margin-top: 4px; }
+
+.status-msg {
+  font-size: 13px;
+  margin-top: 8px;
+  min-height: 18px;
+}
+
+.status-msg.error { color: var(--danger); }
+.status-msg.success { color: #188038; }
+
+.results-layout {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.map-container {
+  height: 600px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: #e8eaed;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.place-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.place-card:hover { border-color: var(--primary); }
+
+.place-card .place-photo {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: #eee;
+  flex-shrink: 0;
+}
+
+.place-card .place-body { flex: 1; min-width: 0; }
+
+.place-card h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.place-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.place-rating { font-size: 13px; color: #f9ab00; }
+.place-address { font-size: 12px; color: var(--text-secondary); margin: 2px 0 6px; }
+.place-desc { font-size: 13px; line-height: 1.6; margin: 0 0 8px; }
+.place-links { display: flex; gap: 12px; font-size: 13px; }
+.place-links a { color: var(--primary); }
+
+@media (max-width: 860px) {
+  .app-main, .results-layout { grid-template-columns: 1fr; }
+  .map-container { height: 360px; }
+}
