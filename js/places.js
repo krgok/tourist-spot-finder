@@ -1,6 +1,8 @@
-import { PLACE_FIELD_MASK, getPreferredLanguageCode } from './config.js';
+import { PLACE_FIELD_MASK, GENRES, getPreferredLanguageCode } from './config.js';
 
-export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount }) {
+export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount, genre }) {
+  const includedTypes = GENRES[genre]?.includedTypes || GENRES.sightseeing.includedTypes;
+
   const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
     method: 'POST',
     headers: {
@@ -9,7 +11,7 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
       'X-Goog-FieldMask': PLACE_FIELD_MASK,
     },
     body: JSON.stringify({
-      includedTypes: ['tourist_attraction'],
+      includedTypes,
       maxResultCount: maxCount,
       rankPreference: 'POPULARITY',
       languageCode: getPreferredLanguageCode(),
@@ -35,7 +37,10 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
   }
 
   const data = await response.json();
-  return data.places || [];
+  const places = data.places || [];
+
+  // Nearby Search はrankPreferenceに'RATING'を持たないため、評価の高い順にクライアント側で並び替える。
+  return places.slice().sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
 }
 
 export function buildPhotoUrl(photo, apiKey, maxWidthPx = 240) {

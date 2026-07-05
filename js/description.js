@@ -10,6 +10,11 @@ const TYPE_LABELS = {
   zoo: '動物園',
   aquarium: '水族館',
   landmark: 'ランドマーク',
+  restaurant: 'レストラン',
+  cafe: 'カフェ',
+  playground: '遊び場',
+  coworking_space: 'コワーキングスペース',
+  library: '図書館',
 };
 
 function describeTypes(types = []) {

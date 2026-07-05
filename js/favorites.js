@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-export async function addFavorite(place, category = 'tourist_attraction') {
+export async function addFavorite(place, category = 'tourist_attraction', meta = {}) {
   const { data, error } = await supabase
     .from('favorites')
     .insert({
@@ -13,6 +13,7 @@ export async function addFavorite(place, category = 'tourist_attraction') {
       rating: place.rating ?? null,
       google_maps_uri: place.googleMapsUri || null,
       snapshot: place,
+      meta,
     })
     .select()
     .single();

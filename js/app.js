@@ -5,7 +5,7 @@ import { searchNearbyTouristSpots } from './places.js';
 import { setStatus, renderResults, renderFavorites, renderHistory } from './ui.js';
 import { MapController } from './map.js';
 import { fetchWikipediaExtract } from './wikipedia.js';
-import { LOW_ACCURACY_THRESHOLD_METERS } from './config.js';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js';
 import { addFavorite, removeFavorite, listFavorites } from './favorites.js';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js';
 import { fetchRoute } from './routes.js';
@@ -17,8 +17,10 @@ let mapController = null;
 let mapReadyPromise = null;
 let currentUser = null;
 let favoritesCache = [];
+let currentGenre = 'sightseeing';
 
 const searchBtn = document.getElementById('search-btn');
+const genreSelect = document.getElementById('genre-select');
 const radiusSelect = document.getElementById('radius-select');
 const countSelect = document.getElementById('count-select');
 
@@ -69,7 +71,8 @@ async function handleFavoriteToggle(index) {
     if (isFavorited(place.id)) {
       await removeFavorite(place.id);
     } else {
-      await addFavorite(place);
+      const genreConfig = GENRES[currentGenre] || GENRES.sightseeing;
+      await addFavorite(place, genreConfig.favoriteCategory, { genre: currentGenre });
     }
     await refreshFavorites();
     rerenderResults();
@@ -134,6 +137,8 @@ async function runSearch() {
     return;
   }
 
+  const genre = genreSelect.value;
+  currentGenre = genre;
   const radiusMeters = Number(radiusSelect.value);
   const maxCount = Number(countSelect.value);
 
@@ -152,6 +157,7 @@ async function runSearch() {
       lng: position.lng,
       radiusMeters,
       maxCount,
+      genre,
     });
 
     setStatus('search-status', '各観光地の情報を補完しています...');

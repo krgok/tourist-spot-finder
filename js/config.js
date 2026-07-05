@@ -24,6 +24,20 @@ export const PLACE_FIELD_MASK = [
   'places.regularOpeningHours',
 ].join(',');
 
+// favoriteCategory は tourist_app.place_category enum (tourist_attraction/restaurant/lodging/event/other) に対応。
+// enumにない細かいジャンルは 'other' にまとめ、実際のジャンルは meta.genre に保存する。
+export const GENRES = {
+  sightseeing: { label: '観光', includedTypes: ['tourist_attraction'], favoriteCategory: 'tourist_attraction' },
+  dining: { label: '食事', includedTypes: ['restaurant'], favoriteCategory: 'restaurant' },
+  kids: {
+    label: '子供向け',
+    includedTypes: ['amusement_park', 'aquarium', 'zoo', 'playground'],
+    favoriteCategory: 'other',
+  },
+  cafe: { label: 'お茶', includedTypes: ['cafe'], favoriteCategory: 'other' },
+  work: { label: '仕事', includedTypes: ['coworking_space', 'library'], favoriteCategory: 'other' },
+};
+
 export const MIN_DESCRIPTION_LENGTH = 200;
 
 export const LOW_ACCURACY_THRESHOLD_METERS = 10000;
