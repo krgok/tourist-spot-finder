@@ -1,4 +1,9 @@
-import { PLACE_FIELD_MASK, GENRES, getPreferredLanguageCode } from './config.js';
+import { PLACE_FIELD_MASK, GENRES } from './config.js';
+
+// アプリのUIは日本語固定のため、Places APIへのリクエストも常に日本語で行う。
+// languageCodeをブラウザ言語に連動させていた頃は、editorialSummaryやレビューが
+// 英語のまま返ってきて説明文に混ざる問題があった。
+const REQUEST_LANGUAGE_CODE = 'ja';
 
 export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount, genre }) {
   const includedPrimaryTypes = GENRES[genre]?.includedPrimaryTypes || GENRES.sightseeing.includedPrimaryTypes;
@@ -14,7 +19,7 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
       includedPrimaryTypes,
       maxResultCount: maxCount,
       rankPreference: 'POPULARITY',
-      languageCode: getPreferredLanguageCode(),
+      languageCode: REQUEST_LANGUAGE_CODE,
       locationRestriction: {
         circle: {
           center: { latitude: lat, longitude: lng },
@@ -53,7 +58,7 @@ export async function geocodeLocation({ apiKey, query }) {
     },
     body: JSON.stringify({
       textQuery: query,
-      languageCode: getPreferredLanguageCode(),
+      languageCode: REQUEST_LANGUAGE_CODE,
       maxResultCount: 1,
     }),
   });
