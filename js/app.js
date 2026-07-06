@@ -1,7 +1,7 @@
 import { initSettingsPanel, loadSettings } from './settings.js';
 import { initAuth } from './auth.js';
 import { getCurrentPosition } from './geolocation.js';
-import { searchNearbyTouristSpots } from './places.js';
+import { searchNearbyTouristSpots, geocodeLocation } from './places.js';
 import { setStatus, renderResults, renderFavorites, renderHistory } from './ui.js';
 import { MapController } from './map.js';
 import { fetchWikipediaExtract } from './wikipedia.js';
@@ -24,6 +24,8 @@ const genreSelect = document.getElementById('genre-select');
 const genreDescriptionEl = document.getElementById('genre-description');
 const radiusSelect = document.getElementById('radius-select');
 const countSelect = document.getElementById('count-select');
+const locationModeRadios = document.querySelectorAll('input[name="location-mode"]');
+const locationQueryInput = document.getElementById('location-query-input');
 
 function updateSearchButtonState() {
   searchBtn.disabled = !currentSettings.apiKey;
@@ -35,6 +37,16 @@ function updateGenreDescription() {
 
 genreSelect.addEventListener('change', updateGenreDescription);
 updateGenreDescription();
+
+locationModeRadios.forEach((radio) => {
+  radio.addEventListener('change', () => {
+    locationQueryInput.classList.toggle('hidden', radio.value !== 'custom' || !radio.checked);
+  });
+});
+
+function getLocationMode() {
+  return document.querySelector('input[name="location-mode"]:checked')?.value || 'current';
+}
 
 async function ensureMapReady() {
   if (!currentSettings.apiKey) return null;
@@ -150,15 +162,28 @@ async function runSearch() {
   const radiusMeters = Number(radiusSelect.value);
   const maxCount = Number(countSelect.value);
 
+  const locationMode = getLocationMode();
+
   searchBtn.disabled = true;
-  setStatus('search-status', '現在地を取得しています...');
 
   try {
-    const position = await getCurrentPosition();
+    let position;
+    if (locationMode === 'custom') {
+      const query = locationQueryInput.value.trim();
+      if (!query) {
+        setStatus('search-status', '検索したい場所を入力してください。', 'error');
+        return;
+      }
+      setStatus('search-status', '指定した場所を検索しています...');
+      position = await geocodeLocation({ apiKey: currentSettings.apiKey, query });
+    } else {
+      setStatus('search-status', '現在地を取得しています...');
+      position = await getCurrentPosition();
+    }
     currentPosition = position;
     const isLowAccuracy = position.accuracy != null && position.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
 
-    setStatus('search-status', '観光地を検索しています...');
+    setStatus('search-status', '周辺のスポットを検索しています...');
     const places = await searchNearbyTouristSpots({
       apiKey: currentSettings.apiKey,
       lat: position.lat,
@@ -168,7 +193,7 @@ async function runSearch() {
       genre,
     });
 
-    setStatus('search-status', '各観光地の情報を補完しています...');
+    setStatus('search-status', '各スポットの情報を補完しています...');
     const wikipediaResults = await Promise.all(
       places.map((place) => fetchWikipediaExtract(place.displayName?.text))
     );
@@ -178,7 +203,7 @@ async function runSearch() {
     if (controller) {
       controller.clearResults();
       controller.clearRoute();
-      controller.setCurrentLocation(position, radiusMeters);
+      controller.setCurrentLocation(position, radiusMeters, locationMode === 'custom' ? '検索地点' : '現在地');
       controller.renderPlaces(currentPlaces, {
         onMarkerClick: (index) => controller.focusPlace(index, currentPlaces[index]),
       });
@@ -201,13 +226,13 @@ async function runSearch() {
     if (isLowAccuracy) {
       setStatus(
         'search-status',
-        `${currentPlaces.length}件の観光地が見つかりました。ただし現在地の精度が低い可能性があります(誤差約${Math.round(
+        `${currentPlaces.length}件のスポットが見つかりました。ただし現在地の精度が低い可能性があります(誤差約${Math.round(
           position.accuracy / 1000
         )}km)。VPN接続中やPCの位置情報サービスがオフの場合、実際の場所と大きくずれることがあります。VPNを切断するか、位置情報サービスを確認してください。`,
         'error'
       );
     } else {
-      setStatus('search-status', `${currentPlaces.length}件の観光地が見つかりました。`, 'success');
+      setStatus('search-status', `${currentPlaces.length}件のスポットが見つかりました。`, 'success');
     }
   } catch (err) {
     console.error(err);

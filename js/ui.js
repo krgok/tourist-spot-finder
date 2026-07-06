@@ -12,7 +12,7 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
   container.innerHTML = '';
 
   if (!places.length) {
-    container.innerHTML = '<p class="hint">この条件では観光地が見つかりませんでした。半径や件数を変更して再検索してください。</p>';
+    container.innerHTML = '<p class="hint">この条件ではスポットが見つかりませんでした。ジャンル・半径・件数を変更して再検索してください。</p>';
     return;
   }
 

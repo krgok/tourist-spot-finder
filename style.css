@@ -89,6 +89,20 @@ body {
   font-weight: 600;
 }
 
+.location-mode-toggle {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  font-weight: normal;
+}
+
+.location-mode-toggle label {
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .form-row select,
 .form-row input {
   padding: 8px;

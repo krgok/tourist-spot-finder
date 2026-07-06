@@ -69,7 +69,7 @@ export class MapController {
     }
   }
 
-  setCurrentLocation({ lat, lng }, radiusMeters) {
+  setCurrentLocation({ lat, lng }, radiusMeters, title = '現在地') {
     if (this.currentLocationMarker) {
       this.currentLocationMarker.map = null;
     }
@@ -82,7 +82,7 @@ export class MapController {
       map: this.map,
       position: { lat, lng },
       content: pin.element,
-      title: '現在地',
+      title,
     });
 
     this.circle = new google.maps.Circle({
