@@ -21,46 +21,70 @@ export const PLACE_FIELD_MASK = [
   'places.googleMapsUri',
   'places.photos',
   'places.types',
+  'places.primaryType',
+  'places.primaryTypeDisplayName',
   'places.regularOpeningHours',
 ].join(',');
 
 // favoriteCategory は tourist_app.place_category enum (tourist_attraction/restaurant/lodging/event/other) に対応。
 // enumにない細かいジャンルは 'other' にまとめ、実際のジャンルは meta.genre に保存する。
 //
-// includedPrimaryTypes は各施設の「主たる種類」だけで絞り込むため、
-// 例えばホテル内のレストラン(primaryTypeはlodging)のような副次的な一致を排除できる。
-// 親タイプ(例:'restaurant')を指定すると、'italian_restaurant'等の子タイプも自動的に含まれる。
+// includedPrimaryTypes はAPIへのリクエストパラメータ(各施設の「主たる種類」だけで絞り込む)。
+// allowedTypes はレスポンス受信後にクライアント側で再照合する許可リスト(親タイプで持ち、
+// place.types配列に含まれていれば合格とすることで子タイプの階層を吸収する)。
+// excludedTypes は primaryType がこれに該当する場合に明確に除外する(例: ホテル内レストラン)。
 export const GENRES = {
   sightseeing: {
     label: '観光',
     description: '観光名所・ランドマークなどの定番スポットを検索します。',
     includedPrimaryTypes: ['tourist_attraction'],
+    allowedTypes: ['tourist_attraction'],
+    excludedTypes: [],
     favoriteCategory: 'tourist_attraction',
   },
   dining: {
     label: '食事',
     description: 'レストラン・食堂など、しっかり食事ができる飲食店を検索します。',
     includedPrimaryTypes: ['restaurant'],
+    allowedTypes: ['restaurant'],
+    excludedTypes: ['lodging', 'hotel', 'gas_station', 'supermarket', 'convenience_store'],
     favoriteCategory: 'restaurant',
   },
   kids: {
     label: '子供向け',
     description: '遊園地・動物園・水族館・公園の遊び場など、子供と一緒に楽しめるスポットを検索します。',
     includedPrimaryTypes: ['amusement_park', 'aquarium', 'zoo', 'playground'],
+    allowedTypes: ['amusement_park', 'aquarium', 'zoo', 'playground'],
+    excludedTypes: [],
     favoriteCategory: 'other',
   },
   cafe: {
     label: 'お茶',
     description: '喫茶店・カフェ・軽食屋など、お茶や軽い食事ができる場所を検索します。',
     includedPrimaryTypes: ['cafe', 'coffee_shop', 'tea_house', 'sandwich_shop', 'bakery'],
+    allowedTypes: ['cafe', 'coffee_shop', 'tea_house', 'sandwich_shop', 'bakery'],
+    excludedTypes: ['lodging', 'hotel'],
     favoriteCategory: 'other',
   },
   work: {
     label: '仕事',
     description: 'コワーキングスペース・図書館・ビジネスセンターなど、作業や仕事に使える場所を検索します。',
     includedPrimaryTypes: ['coworking_space', 'library', 'business_center'],
+    allowedTypes: ['coworking_space', 'library', 'business_center'],
+    excludedTypes: [],
+    minRatingCount: 1,
     favoriteCategory: 'other',
   },
+};
+
+// ベイズ推定平均によるスコアリング(単純なrating降順だと「評価4.9・レビュー2件」が
+// 「評価4.6・レビュー1000件」より上位に来てしまう問題を緩和する)。
+// score = (v/(v+m))*R + (m/(v+m))*C
+export const RANKING = {
+  priorWeight: 50, // m: 信頼に必要とみなすレビュー件数
+  priorMean: 3.8, // C: 事前平均(Googleレビューは高評価寄りのため3.5〜4.0が妥当)
+  defaultMinRatingCount: 5,
+  defaultMinRating: 3.0,
 };
 
 export const MIN_DESCRIPTION_LENGTH = 150;

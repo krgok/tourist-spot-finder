@@ -230,7 +230,15 @@ body {
   flex-shrink: 0;
 }
 
-.place-rating { font-size: 13px; color: #f9ab00; }
+.place-rating { font-size: 13px; color: #f9ab00; display: flex; align-items: center; gap: 8px; }
+.place-type-badge {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
 .place-address { font-size: 12px; color: var(--text-secondary); margin: 2px 0 6px; }
 .place-desc { font-size: 13px; line-height: 1.6; margin: 0 0 8px; }
 .place-links { display: flex; gap: 12px; font-size: 13px; margin-bottom: 8px; }

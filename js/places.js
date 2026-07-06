@@ -1,12 +1,50 @@
-import { PLACE_FIELD_MASK, GENRES } from './config.js';
+import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js';
 
 // アプリのUIは日本語固定のため、Places APIへのリクエストも常に日本語で行う。
 // languageCodeをブラウザ言語に連動させていた頃は、editorialSummaryやレビューが
 // 英語のまま返ってきて説明文に混ざる問題があった。
 const REQUEST_LANGUAGE_CODE = 'ja';
 
+// Nearby Searchの最大取得件数(20)を常に要求し、クライアント側のジャンル再照合・
+// 品質フィルタで間引いてから表示件数(maxCount)に切り出す。APIはリクエスト単位課金なので
+// 20件取得しても追加コストはない。
+const FETCH_POOL_SIZE = 20;
+
+function matchesGenre(place, genreConfig) {
+  const types = place.types || [];
+  const isAllowed = genreConfig.allowedTypes.some((t) => types.includes(t));
+  const isExcluded = genreConfig.excludedTypes.includes(place.primaryType);
+  if (!isAllowed) {
+    console.debug('[genre-filter] excluded (type mismatch):', place.displayName?.text, place.primaryType, types);
+  } else if (isExcluded) {
+    console.debug('[genre-filter] excluded (excludedTypes):', place.displayName?.text, place.primaryType);
+  }
+  return isAllowed && !isExcluded;
+}
+
+function bayesianScore(place) {
+  const v = place.userRatingCount || 0;
+  const R = place.rating ?? RANKING.priorMean;
+  const m = RANKING.priorWeight;
+  const C = RANKING.priorMean;
+  return (v / (v + m)) * R + (m / (v + m)) * C;
+}
+
+function applyQualityFilter(places, genreConfig) {
+  const minRatingCount = genreConfig.minRatingCount ?? RANKING.defaultMinRatingCount;
+  const minRating = RANKING.defaultMinRating;
+
+  const strict = places.filter(
+    (p) => (p.userRatingCount || 0) >= minRatingCount && (p.rating ?? 0) >= minRating
+  );
+  const relaxed = places.filter((p) => (p.userRatingCount || 0) >= 1);
+
+  if (strict.length >= places.length) return { filtered: strict, relaxed: false };
+  return { filtered: strict.length ? strict : relaxed, relaxed: strict.length < places.length };
+}
+
 export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount, genre }) {
-  const includedPrimaryTypes = GENRES[genre]?.includedPrimaryTypes || GENRES.sightseeing.includedPrimaryTypes;
+  const genreConfig = GENRES[genre] || GENRES.sightseeing;
 
   const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
     method: 'POST',
@@ -16,8 +54,8 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
       'X-Goog-FieldMask': PLACE_FIELD_MASK,
     },
     body: JSON.stringify({
-      includedPrimaryTypes,
-      maxResultCount: maxCount,
+      includedPrimaryTypes: genreConfig.includedPrimaryTypes,
+      maxResultCount: FETCH_POOL_SIZE,
       rankPreference: 'POPULARITY',
       languageCode: REQUEST_LANGUAGE_CODE,
       locationRestriction: {
@@ -42,10 +80,17 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
   }
 
   const data = await response.json();
-  const places = data.places || [];
+  const rawPlaces = data.places || [];
 
-  // Nearby Search はrankPreferenceに'RATING'を持たないため、評価の高い順にクライアント側で並び替える。
-  return places.slice().sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+  const genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig));
+  const { filtered, relaxed } = applyQualityFilter(genreMatched, genreConfig);
+
+  const ranked = filtered
+    .slice()
+    .sort((a, b) => bayesianScore(b) - bayesianScore(a))
+    .slice(0, maxCount);
+
+  return { places: ranked, relaxed, poolSize: rawPlaces.length, matchedSize: genreMatched.length };
 }
 
 export async function geocodeLocation({ apiKey, query }) {

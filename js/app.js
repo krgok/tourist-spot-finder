@@ -184,7 +184,7 @@ async function runSearch() {
     const isLowAccuracy = position.accuracy != null && position.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
 
     setStatus('search-status', '周辺のスポットを検索しています...');
-    const places = await searchNearbyTouristSpots({
+    const { places, relaxed } = await searchNearbyTouristSpots({
       apiKey: currentSettings.apiKey,
       lat: position.lat,
       lng: position.lng,
@@ -223,16 +223,18 @@ async function runSearch() {
         .catch((err) => console.error(err));
     }
 
+    const relaxedNote = relaxed ? '(評価件数の少ないスポットを含みます)' : '';
+
     if (isLowAccuracy) {
       setStatus(
         'search-status',
-        `${currentPlaces.length}件のスポットが見つかりました。ただし現在地の精度が低い可能性があります(誤差約${Math.round(
+        `${currentPlaces.length}件のスポットが見つかりました${relaxedNote}。ただし現在地の精度が低い可能性があります(誤差約${Math.round(
           position.accuracy / 1000
         )}km)。VPN接続中やPCの位置情報サービスがオフの場合、実際の場所と大きくずれることがあります。VPNを切断するか、位置情報サービスを確認してください。`,
         'error'
       );
     } else {
-      setStatus('search-status', `${currentPlaces.length}件のスポットが見つかりました。`, 'success');
+      setStatus('search-status', `${currentPlaces.length}件のスポットが見つかりました${relaxedNote}。`, 'success');
     }
   } catch (err) {
     console.error(err);

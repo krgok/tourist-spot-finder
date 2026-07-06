@@ -47,6 +47,12 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     if (place.rating) {
       ratingEl.textContent = `★ ${place.rating} (${place.userRatingCount || 0}件)`;
     }
+    if (place.primaryTypeDisplayName?.text) {
+      const typeBadge = document.createElement('span');
+      typeBadge.className = 'place-type-badge';
+      typeBadge.textContent = place.primaryTypeDisplayName.text;
+      ratingEl.appendChild(typeBadge);
+    }
 
     const addressEl = document.createElement('p');
     addressEl.className = 'place-address';
