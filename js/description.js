@@ -32,6 +32,17 @@ function describeOpeningHours(openingHours) {
   return `営業時間の目安は「${openingHours.weekdayDescriptions[0]}」などとなっています。`;
 }
 
+// Google側に日本語訳が用意されていないeditorialSummary/レビューは原文(多くは英語)のまま
+// 返ってくることがある。説明文が英語だらけにならないよう、日本語の割合が低いテキストは
+// そもそも採用せず、テンプレート文のフォールバックに任せる。
+function isMostlyJapanese(text) {
+  if (!text) return false;
+  const nonSpaceLength = text.replace(/\s/g, '').length;
+  if (nonSpaceLength === 0) return false;
+  const japaneseCharCount = (text.match(/[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/g) || []).length;
+  return japaneseCharCount / nonSpaceLength >= 0.3;
+}
+
 export function buildDescription(place) {
   const name = place.displayName?.text || '名称不明のスポット';
   const address = place.formattedAddress || '';
@@ -41,9 +52,9 @@ export function buildDescription(place) {
 
   const parts = [];
 
-  if (place._wikipedia?.extract) {
+  if (isMostlyJapanese(place._wikipedia?.extract)) {
     parts.push(place._wikipedia.extract);
-  } else if (place.editorialSummary?.text) {
+  } else if (isMostlyJapanese(place.editorialSummary?.text)) {
     parts.push(place.editorialSummary.text);
   }
 
@@ -65,7 +76,7 @@ export function buildDescription(place) {
     for (const review of place.reviews) {
       if (text.length >= MIN_DESCRIPTION_LENGTH) break;
       const reviewText = review.text?.text;
-      if (reviewText) {
+      if (isMostlyJapanese(reviewText)) {
         text += `訪問者の声（Googleレビューより）：「${reviewText}」`;
       }
     }
