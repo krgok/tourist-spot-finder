@@ -63,7 +63,7 @@ export const GENRES = {
   },
 };
 
-export const MIN_DESCRIPTION_LENGTH = 200;
+export const MIN_DESCRIPTION_LENGTH = 150;
 
 export const LOW_ACCURACY_THRESHOLD_METERS = 10000;
 

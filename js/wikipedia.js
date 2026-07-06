@@ -38,8 +38,11 @@ async function fetchFromWikipediaLang(lang, name) {
 export async function fetchWikipediaExtract(name) {
   if (!name) return null;
 
+  // アプリのUI・説明文テンプレートは日本語固定のため、要約文が英語だらけにならないよう
+  // ブラウザの言語設定に関わらず常に日本語版を最優先で試し、見つからない場合のみ
+  // ブラウザの言語→英語版の順にフォールバックする。
   const preferredLang = getPreferredLanguageCode();
-  const langsToTry = preferredLang === 'en' ? ['en'] : [preferredLang, 'en'];
+  const langsToTry = ['ja', preferredLang, 'en'].filter((lang, index, arr) => arr.indexOf(lang) === index);
 
   for (const lang of langsToTry) {
     const result = await fetchFromWikipediaLang(lang, name);
