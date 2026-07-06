@@ -12,9 +12,14 @@ const TYPE_LABELS = {
   landmark: 'ランドマーク',
   restaurant: 'レストラン',
   cafe: 'カフェ',
+  coffee_shop: 'コーヒーショップ',
+  tea_house: '喫茶店',
+  sandwich_shop: '軽食屋',
+  bakery: 'ベーカリー',
   playground: '遊び場',
   coworking_space: 'コワーキングスペース',
   library: '図書館',
+  business_center: 'ビジネスセンター',
 };
 
 function describeTypes(types = []) {

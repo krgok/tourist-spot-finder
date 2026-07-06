@@ -1,7 +1,7 @@
 import { PLACE_FIELD_MASK, GENRES, getPreferredLanguageCode } from './config.js';
 
 export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount, genre }) {
-  const includedTypes = GENRES[genre]?.includedTypes || GENRES.sightseeing.includedTypes;
+  const includedPrimaryTypes = GENRES[genre]?.includedPrimaryTypes || GENRES.sightseeing.includedPrimaryTypes;
 
   const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
     method: 'POST',
@@ -11,7 +11,7 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
       'X-Goog-FieldMask': PLACE_FIELD_MASK,
     },
     body: JSON.stringify({
-      includedTypes,
+      includedPrimaryTypes,
       maxResultCount: maxCount,
       rankPreference: 'POPULARITY',
       languageCode: getPreferredLanguageCode(),

@@ -25,7 +25,8 @@
   <section id="settings-panel" class="panel">
     <h2>API設定</h2>
     <p class="hint">
-      観光地情報・地図・経路表示には Google Maps / Places API / Routes API のAPIキーが必要です。
+      観光・食事・子供向け・お茶・仕事など、ジャンル別のスポット情報・地図・経路表示には
+      Google Maps / Places API / Routes API のAPIキーが必要です。
       ご自身の Google Cloud Console で「Maps JavaScript API」「Places API (New)」「Routes API」を有効化したAPIキーを取得し、以下に入力してください（ブラウザの localStorage にのみ保存されます）。
       ログインはアプリ運営者が用意したGoogleログイン(Supabase Auth)を利用するため、キーの入力は不要です。
     </p>
@@ -45,6 +46,10 @@
 
   <section id="search-panel" class="panel">
     <h2>周辺検索</h2>
+    <p class="hint">
+      ジャンルを選ぶと、そのジャンルに合った施設だけに絞り込んで検索します
+      (例:「食事」はレストラン・食堂中心、「お茶」は喫茶店・カフェ・軽食屋中心、「仕事」はコワーキングスペース・図書館中心)。
+    </p>
     <div class="form-row">
       <label for="genre-select">ジャンル</label>
       <select id="genre-select">
@@ -54,6 +59,7 @@
         <option value="cafe">お茶</option>
         <option value="work">仕事</option>
       </select>
+      <p id="genre-description" class="hint"></p>
     </div>
     <div class="form-row">
       <label for="radius-select">検索半径</label>

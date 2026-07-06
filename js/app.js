@@ -21,12 +21,20 @@ let currentGenre = 'sightseeing';
 
 const searchBtn = document.getElementById('search-btn');
 const genreSelect = document.getElementById('genre-select');
+const genreDescriptionEl = document.getElementById('genre-description');
 const radiusSelect = document.getElementById('radius-select');
 const countSelect = document.getElementById('count-select');
 
 function updateSearchButtonState() {
   searchBtn.disabled = !currentSettings.apiKey;
 }
+
+function updateGenreDescription() {
+  genreDescriptionEl.textContent = GENRES[genreSelect.value]?.description || '';
+}
+
+genreSelect.addEventListener('change', updateGenreDescription);
+updateGenreDescription();
 
 async function ensureMapReady() {
   if (!currentSettings.apiKey) return null;
