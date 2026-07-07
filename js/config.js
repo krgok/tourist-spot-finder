@@ -24,6 +24,7 @@ export const PLACE_FIELD_MASK = [
   'places.primaryType',
   'places.primaryTypeDisplayName',
   'places.regularOpeningHours',
+  'places.priceLevel',
 ].join(',');
 
 // favoriteCategory は tourist_app.place_category enum (tourist_attraction/restaurant/lodging/event/other) に対応。
