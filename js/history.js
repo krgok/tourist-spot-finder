@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.js';
+import { supabase } from './supabaseClient.js?v=20260707-4';
 
 export async function recordSearch({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel }) {
   const results = places.slice(0, 20).map((place) => ({

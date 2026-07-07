@@ -1,14 +1,14 @@
-import { initSettingsPanel, loadSettings } from './settings.js';
-import { initAuth } from './auth.js';
-import { getCurrentPosition } from './geolocation.js';
-import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js';
-import { MapController } from './map.js';
-import { fetchWikipediaExtract } from './wikipedia.js';
-import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js';
-import { addFavorite, removeFavorite, listFavorites } from './favorites.js';
-import { recordSearch, listHistory, deleteHistoryEntry } from './history.js';
-import { fetchRoute } from './routes.js';
+import { initSettingsPanel, loadSettings } from './settings.js?v=20260707-4';
+import { initAuth } from './auth.js?v=20260707-4';
+import { getCurrentPosition } from './geolocation.js?v=20260707-4';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260707-4';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260707-4';
+import { MapController } from './map.js?v=20260707-4';
+import { fetchWikipediaExtract } from './wikipedia.js?v=20260707-4';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260707-4';
+import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260707-4';
+import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260707-4';
+import { fetchRoute } from './routes.js?v=20260707-4';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=20260707-4';
 
 // 既存のSupabaseプロジェクトに同居させるため、専用スキーマ tourist_app を使う。
 // Supabaseダッシュボードの Project Settings > API > Exposed schemas に

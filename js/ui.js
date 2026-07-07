@@ -1,6 +1,6 @@
-import { buildPhotoUrl } from './places.js';
-import { buildDescription } from './description.js';
-import { GENRES } from './config.js';
+import { buildPhotoUrl } from './places.js?v=20260707-4';
+import { buildDescription } from './description.js?v=20260707-4';
+import { GENRES } from './config.js?v=20260707-4';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);

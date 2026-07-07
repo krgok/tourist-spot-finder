@@ -65,8 +65,8 @@ body {
   border: none;
   border-radius: var(--radius);
   padding: 20px;
-  max-width: 480px;
-  width: 90%;
+  width: min(480px, 90vw);
+  margin: auto;
 }
 
 #settings-dialog::backdrop {

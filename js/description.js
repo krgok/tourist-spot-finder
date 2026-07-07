@@ -1,4 +1,4 @@
-import { MIN_DESCRIPTION_LENGTH } from './config.js';
+import { MIN_DESCRIPTION_LENGTH } from './config.js?v=20260707-4';
 
 const TYPE_LABELS = {
   tourist_attraction: '観光名所',
