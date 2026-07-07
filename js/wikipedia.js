@@ -1,4 +1,4 @@
-import { getPreferredLanguageCode } from './config.js?v=20260708-2';
+import { getPreferredLanguageCode } from './config.js?v=20260708-3';
 
 const WIKIPEDIA_TIMEOUT_MS = 5000;
 

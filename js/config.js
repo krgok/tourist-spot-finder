@@ -88,8 +88,11 @@ export const GENRES = {
   shrine_temple: {
     label: '神社仏閣',
     description: '神社・寺院など、歴史ある信仰の場を検索します。',
-    includedPrimaryTypes: ['place_of_worship'],
-    allowedTypes: ['place_of_worship'],
+    // 'place_of_worship'はレスポンスのtypes配列には現れるが、Places API (New)の
+    // includedPrimaryTypes等のリクエストパラメータとしては無効(Unsupported types
+    // エラーになる)。具体的なタイプ名を指定する必要がある。
+    includedPrimaryTypes: ['shinto_shrine', 'buddhist_temple'],
+    allowedTypes: ['shinto_shrine', 'buddhist_temple', 'place_of_worship'],
     excludedTypes: [],
     favoriteCategory: 'tourist_attraction',
   },
