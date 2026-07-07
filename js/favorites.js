@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.js?v=20260708-3';
+import { supabase } from './supabaseClient.js?v=20260708-4';
 
 export async function addFavorite(place, category = 'tourist_attraction', meta = {}) {
   const { data, error } = await supabase

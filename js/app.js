@@ -1,14 +1,14 @@
-import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-3';
-import { initAuth } from './auth.js?v=20260708-3';
-import { getCurrentPosition } from './geolocation.js?v=20260708-3';
-import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-3';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260708-3';
-import { MapController } from './map.js?v=20260708-3';
-import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-3';
-import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260708-3';
-import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-3';
-import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-3';
-import { fetchRoute } from './routes.js?v=20260708-3';
+import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-4';
+import { initAuth } from './auth.js?v=20260708-4';
+import { getCurrentPosition } from './geolocation.js?v=20260708-4';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-4';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260708-4';
+import { MapController } from './map.js?v=20260708-4';
+import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-4';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260708-4';
+import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-4';
+import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
+import { fetchRoute } from './routes.js?v=20260708-4';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -306,7 +306,12 @@ async function runSearch(override) {
 
     setStatus('search-status', '各スポットの情報を補完しています...');
     const wikipediaResults = await Promise.all(
-      places.map((place) => fetchWikipediaExtract(place.displayName?.text))
+      places.map((place) =>
+        fetchWikipediaExtract(
+          place.displayName?.text,
+          place.location ? { lat: place.location.latitude, lng: place.location.longitude } : null
+        )
+      )
     );
     const enrichedPlaces = places.map((place, index) => ({ ...place, _wikipedia: wikipediaResults[index] }));
     currentPlaces = sortPlaces(enrichedPlaces, currentSortKey, position, radiusMeters);
