@@ -25,6 +25,7 @@ export const PLACE_FIELD_MASK = [
   'places.primaryTypeDisplayName',
   'places.regularOpeningHours',
   'places.priceLevel',
+  'places.businessStatus',
 ].join(',');
 
 // favoriteCategory は tourist_app.place_category enum (tourist_attraction/restaurant/lodging/event/other) に対応。
@@ -126,6 +127,9 @@ export const RANKING = {
   priorMean: 3.8, // C: 事前平均(Googleレビューは高評価寄りのため3.5〜4.0が妥当)
   defaultMinRatingCount: 5,
   defaultMinRating: 3.0,
+  // 「おすすめ順」でのみ、検索半径に対する相対距離でスコアをわずかに減衰させる
+  // (「近い順」と役割が被らないよう、最大でも約12%程度の減点に留める)。
+  distanceDecayAlpha: 0.12,
 };
 
 export const MIN_DESCRIPTION_LENGTH = 150;

@@ -1,14 +1,14 @@
-import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-1';
-import { initAuth } from './auth.js?v=20260708-1';
-import { getCurrentPosition } from './geolocation.js?v=20260708-1';
-import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-1';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260708-1';
-import { MapController } from './map.js?v=20260708-1';
-import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-1';
-import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260708-1';
-import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-1';
-import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-1';
-import { fetchRoute } from './routes.js?v=20260708-1';
+import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-2';
+import { initAuth } from './auth.js?v=20260708-2';
+import { getCurrentPosition } from './geolocation.js?v=20260708-2';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-2';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260708-2';
+import { MapController } from './map.js?v=20260708-2';
+import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-2';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260708-2';
+import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-2';
+import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-2';
+import { fetchRoute } from './routes.js?v=20260708-2';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -156,7 +156,7 @@ function handleHistoryRerun(entry) {
 
 function applySortAndRerender() {
   if (!currentPlaces.length) return;
-  currentPlaces = sortPlaces(currentPlaces, currentSortKey, currentPosition);
+  currentPlaces = sortPlaces(currentPlaces, currentSortKey, currentPosition, Number(radiusSelect.value));
   rerenderResults();
   if (mapController) {
     mapController.clearMarkers();
@@ -309,7 +309,7 @@ async function runSearch(override) {
       places.map((place) => fetchWikipediaExtract(place.displayName?.text))
     );
     const enrichedPlaces = places.map((place, index) => ({ ...place, _wikipedia: wikipediaResults[index] }));
-    currentPlaces = sortPlaces(enrichedPlaces, currentSortKey, position);
+    currentPlaces = sortPlaces(enrichedPlaces, currentSortKey, position, radiusMeters);
 
     const controller = await ensureMapReady();
     if (controller) {

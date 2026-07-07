@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from './config.js?v=20260708-1';
+import { STORAGE_KEYS } from './config.js?v=20260708-2';
 
 export function loadSettings() {
   return {

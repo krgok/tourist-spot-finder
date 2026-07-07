@@ -1,4 +1,4 @@
-import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js?v=20260708-1';
+import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js?v=20260708-2';
 
 // アプリのUIは日本語固定のため、Places APIへのリクエストも常に日本語で行う。
 // languageCodeをブラウザ言語に連動させていた頃は、editorialSummaryやレビューが
@@ -22,12 +22,33 @@ function matchesGenre(place, genreConfig) {
   return isAllowed && !isExcluded;
 }
 
+// businessStatusが未設定の場所は情報不足なだけで閉業と決めつけず、営業中扱いにする。
+function isOperational(place) {
+  const status = place.businessStatus;
+  const operational = status == null || status === 'OPERATIONAL';
+  if (!operational) {
+    console.debug('[business-status] excluded (not operational):', place.displayName?.text, status);
+  }
+  return operational;
+}
+
 export function bayesianScore(place) {
   const v = place.userRatingCount || 0;
   const R = place.rating ?? RANKING.priorMean;
   const m = RANKING.priorWeight;
   const C = RANKING.priorMean;
   return (v / (v + m)) * R + (m / (v + m)) * C;
+}
+
+// 「おすすめ順」用のスコア。ベイズ推定平均に、検索半径に対する相対距離での
+// 穏やかな減衰を掛ける(「近い順」ソートと役割が被らないよう減衰幅は小さく保つ)。
+export function recommendedScore(place, origin, radiusMeters) {
+  const base = bayesianScore(place);
+  if (!origin || !radiusMeters) return base;
+  const d = distanceMeters(origin, toLatLng(place.location));
+  if (!Number.isFinite(d)) return base;
+  const decay = Math.max(0, 1 - RANKING.distanceDecayAlpha * (d / radiusMeters));
+  return base * decay;
 }
 
 // Haversine formula. 地図表示や経路計算とは独立した、並び替え専用の概算距離(メートル)。
@@ -43,7 +64,7 @@ export function distanceMeters(from, to) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function sortPlaces(places, sortKey, origin) {
+export function sortPlaces(places, sortKey, origin, radiusMeters) {
   const sorted = places.slice();
   switch (sortKey) {
     case 'distance':
@@ -57,7 +78,9 @@ export function sortPlaces(places, sortKey, origin) {
       return sorted.sort((a, b) => (b.userRatingCount || 0) - (a.userRatingCount || 0));
     case 'recommended':
     default:
-      return sorted.sort((a, b) => bayesianScore(b) - bayesianScore(a));
+      return sorted.sort(
+        (a, b) => recommendedScore(b, origin, radiusMeters) - recommendedScore(a, origin, radiusMeters)
+      );
   }
 }
 
@@ -65,6 +88,10 @@ function toLatLng(location) {
   return location ? { lat: location.latitude, lng: location.longitude } : null;
 }
 
+// 段階的に条件を緩和して候補を確保する。`relaxed`はUIへの注記用で、
+// 実際に緩和後の集合を採用した場合にのみtrueにする(以前は「候補が一部除外された」
+// だけでtrueになってしまい、strict条件のまま候補が残っているケースでも
+// 「評価件数の少ないスポットを含みます」という誤った注記が出ていた)。
 function applyQualityFilter(places, genreConfig) {
   const minRatingCount = genreConfig.minRatingCount ?? RANKING.defaultMinRatingCount;
   const minRating = RANKING.defaultMinRating;
@@ -72,10 +99,13 @@ function applyQualityFilter(places, genreConfig) {
   const strict = places.filter(
     (p) => (p.userRatingCount || 0) >= minRatingCount && (p.rating ?? 0) >= minRating
   );
-  const relaxed = places.filter((p) => (p.userRatingCount || 0) >= 1);
+  if (strict.length > 0) return { filtered: strict, relaxed: false };
 
-  if (strict.length >= places.length) return { filtered: strict, relaxed: false };
-  return { filtered: strict.length ? strict : relaxed, relaxed: strict.length < places.length };
+  const reviewedAtLeastOnce = places.filter((p) => (p.userRatingCount || 0) >= 1);
+  if (reviewedAtLeastOnce.length > 0) return { filtered: reviewedAtLeastOnce, relaxed: true };
+
+  // レビューが1件もない場所しか残らない場合は、0件を返すよりはそのまま出す。
+  return { filtered: places, relaxed: places.length > 0 };
 }
 
 export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount, genre }) {
@@ -117,12 +147,13 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
   const data = await response.json();
   const rawPlaces = data.places || [];
 
-  const genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig));
+  const genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig)).filter(isOperational);
   const { filtered, relaxed } = applyQualityFilter(genreMatched, genreConfig);
 
+  const origin = { lat, lng };
   const ranked = filtered
     .slice()
-    .sort((a, b) => bayesianScore(b) - bayesianScore(a))
+    .sort((a, b) => recommendedScore(b, origin, radiusMeters) - recommendedScore(a, origin, radiusMeters))
     .slice(0, maxCount);
 
   return { places: ranked, relaxed, poolSize: rawPlaces.length, matchedSize: genreMatched.length };
