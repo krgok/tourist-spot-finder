@@ -2,7 +2,7 @@ import { initSettingsPanel, loadSettings } from './settings.js';
 import { initAuth } from './auth.js';
 import { getCurrentPosition } from './geolocation.js';
 import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo } from './ui.js';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js';
 import { MapController } from './map.js';
 import { fetchWikipediaExtract } from './wikipedia.js';
 import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js';
@@ -146,7 +146,10 @@ function applySortAndRerender() {
   if (mapController) {
     mapController.clearMarkers();
     mapController.renderPlaces(currentPlaces, {
-      onMarkerClick: (index) => mapController.focusPlace(index, currentPlaces[index]),
+      onMarkerClick: (index) => {
+        mapController.focusPlace(index, currentPlaces[index]);
+        scrollToCard(index);
+      },
     });
   }
 }
@@ -299,7 +302,10 @@ async function runSearch(override) {
       controller.clearRoute();
       controller.setCurrentLocation(position, radiusMeters, locationLabel);
       controller.renderPlaces(currentPlaces, {
-        onMarkerClick: (index) => controller.focusPlace(index, currentPlaces[index]),
+        onMarkerClick: (index) => {
+          controller.focusPlace(index, currentPlaces[index]);
+          scrollToCard(index);
+        },
       });
     }
 

@@ -281,6 +281,12 @@ body {
 
 .place-card:hover { border-color: var(--primary); }
 
+.place-card-highlight {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.25);
+  transition: box-shadow 0.3s ease;
+}
+
 .place-card .place-photo {
   width: 96px;
   height: 96px;

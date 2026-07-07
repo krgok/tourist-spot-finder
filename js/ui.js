@@ -143,6 +143,14 @@ export function updateRouteInfo(index, text) {
   if (el) el.textContent = text;
 }
 
+export function scrollToCard(index) {
+  const card = document.querySelector(`.place-card[data-index="${index}"]`);
+  if (!card) return;
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  card.classList.add('place-card-highlight');
+  setTimeout(() => card.classList.remove('place-card-highlight'), 1500);
+}
+
 export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
   const container = document.getElementById('favorites-list');
   container.innerHTML = '';
