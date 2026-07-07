@@ -12,6 +12,8 @@
 
 * { box-sizing: border-box; }
 
+.hidden { display: none !important; }
+
 body {
   margin: 0;
   font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
@@ -33,7 +35,52 @@ body {
   margin: 0;
 }
 
-.auth-area { display: flex; align-items: center; }
+.auth-area { display: flex; align-items: center; gap: 12px; }
+
+.btn-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-icon:hover { background: rgba(255, 255, 255, 0.25); }
+
+.settings-warning-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.settings-warning-badge.hidden { display: none; }
+
+#settings-dialog {
+  border: none;
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 480px;
+  width: 90%;
+}
+
+#settings-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dialog-header h2 { margin: 0; font-size: 16px; }
 
 .user-info {
   display: flex;
@@ -83,6 +130,21 @@ body {
   flex-direction: column;
   gap: 4px;
 }
+
+#search-panel { grid-column: 1 / -1; }
+
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  align-items: end;
+}
+
+.search-grid .form-row { margin-bottom: 0; }
+
+.form-row-wide { grid-column: 1 / -1; }
+
+.location-mode-toggle { flex-wrap: wrap; }
 
 .form-row label {
   font-size: 13px;

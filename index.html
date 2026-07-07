@@ -10,6 +10,9 @@
 <header class="app-header">
   <h1>周辺スポット検索アプリ</h1>
   <div id="auth-area" class="auth-area">
+    <button id="open-settings-btn" class="btn btn-icon" title="API設定" aria-haspopup="dialog">
+      ⚙ API設定<span id="settings-warning-badge" class="settings-warning-badge hidden">!</span>
+    </button>
     <div id="g_id_signin_container">
       <button id="login-btn" class="btn btn-secondary">Googleでログイン</button>
     </div>
@@ -21,84 +24,86 @@
   </div>
 </header>
 
-<main class="app-main">
-  <section id="settings-panel" class="panel">
+<dialog id="settings-dialog">
+  <div class="dialog-header">
     <h2>API設定</h2>
-    <p class="hint">
-      観光・食事・子供向け・お茶・仕事など、ジャンル別のスポット情報・地図・経路表示には
-      Google Maps / Places API / Routes API のAPIキーが必要です。
-      ご自身の Google Cloud Console で「Maps JavaScript API」「Places API (New)」「Routes API」を有効化したAPIキーを取得し、以下に入力してください（ブラウザの localStorage にのみ保存されます）。
-      ログインはアプリ運営者が用意したGoogleログイン(Supabase Auth)を利用するため、キーの入力は不要です。
-    </p>
-    <div class="form-row">
-      <label for="api-key-input">Google Maps APIキー</label>
-      <div class="input-with-toggle">
-        <input type="password" id="api-key-input" placeholder="AIza...">
-        <button type="button" id="toggle-api-key" class="btn btn-small">表示</button>
-      </div>
+    <button id="close-settings-btn" class="btn btn-small" type="button" aria-label="閉じる">✕</button>
+  </div>
+  <p class="hint">
+    観光・食事・子供向け・お茶・仕事など、ジャンル別のスポット情報・地図・経路表示には
+    Google Maps / Places API / Routes API のAPIキーが必要です。
+    ご自身の Google Cloud Console で「Maps JavaScript API」「Places API (New)」「Routes API」を有効化したAPIキーを取得し、以下に入力してください（ブラウザの localStorage にのみ保存されます）。
+    ログインはアプリ運営者が用意したGoogleログイン(Supabase Auth)を利用するため、キーの入力は不要です。
+  </p>
+  <div class="form-row">
+    <label for="api-key-input">Google Maps APIキー</label>
+    <div class="input-with-toggle">
+      <input type="password" id="api-key-input" placeholder="AIza...">
+      <button type="button" id="toggle-api-key" class="btn btn-small">表示</button>
     </div>
-    <div class="form-row-buttons">
-      <button id="save-settings-btn" class="btn btn-primary">保存</button>
-      <button id="clear-settings-btn" class="btn btn-secondary">削除</button>
-    </div>
-    <p id="settings-status" class="status-msg"></p>
-  </section>
+  </div>
+  <div class="form-row-buttons">
+    <button id="save-settings-btn" class="btn btn-primary">保存</button>
+    <button id="clear-settings-btn" class="btn btn-secondary">削除</button>
+  </div>
+  <p id="settings-status" class="status-msg"></p>
+</dialog>
 
+<main class="app-main">
   <section id="search-panel" class="panel">
-    <h2>周辺検索</h2>
-    <p class="hint">
-      ジャンルを選ぶと、そのジャンルに合った施設だけに絞り込んで検索します
-      (例:「食事」はレストラン・食堂中心、「お茶」は喫茶店・カフェ・軽食屋中心、「仕事」はコワーキングスペース・図書館中心)。
-    </p>
-    <div class="form-row">
-      <label for="genre-select">ジャンル</label>
-      <select id="genre-select">
-        <option value="sightseeing" selected>観光</option>
-        <option value="dining">食事</option>
-        <option value="kids">子供向け</option>
-        <option value="cafe">お茶</option>
-        <option value="work">仕事</option>
-        <option value="onsen">温泉</option>
-        <option value="shrine_temple">神社仏閣</option>
-        <option value="museum">美術館・博物館</option>
-      </select>
-      <p id="genre-description" class="hint"></p>
-    </div>
-    <div class="form-row">
-      <label>検索地点</label>
-      <div class="location-mode-toggle">
-        <label><input type="radio" name="location-mode" value="current" checked> 現在地</label>
-        <label><input type="radio" name="location-mode" value="custom"> 場所を指定</label>
+    <div class="search-grid">
+      <div class="form-row">
+        <label for="genre-select">ジャンル</label>
+        <select id="genre-select">
+          <option value="sightseeing" selected>観光</option>
+          <option value="dining">食事</option>
+          <option value="kids">子供向け</option>
+          <option value="cafe">お茶</option>
+          <option value="work">仕事</option>
+          <option value="onsen">温泉</option>
+          <option value="shrine_temple">神社仏閣</option>
+          <option value="museum">美術館・博物館</option>
+        </select>
       </div>
-      <input type="text" id="location-query-input" class="hidden" placeholder="例: 東京駅、渋谷区、大阪城 など">
+      <div class="form-row">
+        <label for="radius-select">検索半径</label>
+        <select id="radius-select">
+          <option value="1000">1km</option>
+          <option value="2000" selected>2km</option>
+          <option value="5000">5km</option>
+          <option value="10000">10km</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="count-select">表示件数</label>
+        <select id="count-select">
+          <option value="5">5件</option>
+          <option value="10" selected>10件</option>
+          <option value="20">20件</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="travel-mode-select">経路の移動手段</label>
+        <select id="travel-mode-select">
+          <option value="WALK" selected>徒歩</option>
+          <option value="DRIVE">車</option>
+          <option value="BICYCLE">自転車</option>
+          <option value="TRANSIT">公共交通機関</option>
+        </select>
+      </div>
+      <div class="form-row form-row-wide">
+        <label>検索地点</label>
+        <div class="location-mode-toggle">
+          <label><input type="radio" name="location-mode" value="current" checked> 現在地</label>
+          <label><input type="radio" name="location-mode" value="custom"> 場所を指定</label>
+          <input type="text" id="location-query-input" class="hidden" placeholder="例: 東京駅、渋谷区、大阪城 など">
+        </div>
+      </div>
+      <div class="form-row form-row-wide">
+        <button id="search-btn" class="btn btn-primary" disabled>周辺のスポットを検索</button>
+      </div>
     </div>
-    <div class="form-row">
-      <label for="radius-select">検索半径</label>
-      <select id="radius-select">
-        <option value="1000">1km</option>
-        <option value="2000" selected>2km</option>
-        <option value="5000">5km</option>
-        <option value="10000">10km</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label for="count-select">表示件数</label>
-      <select id="count-select">
-        <option value="5">5件</option>
-        <option value="10" selected>10件</option>
-        <option value="20">20件</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label for="travel-mode-select">経路の移動手段</label>
-      <select id="travel-mode-select">
-        <option value="WALK" selected>徒歩</option>
-        <option value="DRIVE">車</option>
-        <option value="BICYCLE">自転車</option>
-        <option value="TRANSIT">公共交通機関</option>
-      </select>
-    </div>
-    <button id="search-btn" class="btn btn-primary" disabled>周辺のスポットを検索</button>
+    <p id="genre-description" class="hint"></p>
     <p id="search-status" class="status-msg"></p>
   </section>
 
@@ -131,6 +136,6 @@
   </section>
 </main>
 
-<script type="module" src="js/app.js?v=20260707-1"></script>
+<script type="module" src="js/app.js?v=20260707-2"></script>
 </body>
 </html>

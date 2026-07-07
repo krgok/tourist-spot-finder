@@ -48,8 +48,20 @@ travelModeSelect.addEventListener('change', () => {
   localStorage.setItem(TRAVEL_MODE_STORAGE, currentTravelMode);
 });
 
+const settingsDialog = document.getElementById('settings-dialog');
+const openSettingsBtn = document.getElementById('open-settings-btn');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const settingsWarningBadge = document.getElementById('settings-warning-badge');
+
+openSettingsBtn.addEventListener('click', () => settingsDialog.showModal());
+closeSettingsBtn.addEventListener('click', () => settingsDialog.close());
+settingsDialog.addEventListener('click', (e) => {
+  if (e.target === settingsDialog) settingsDialog.close();
+});
+
 function updateSearchButtonState() {
   searchBtn.disabled = !currentSettings.apiKey;
+  settingsWarningBadge.classList.toggle('hidden', Boolean(currentSettings.apiKey));
 }
 
 function updateGenreDescription() {
@@ -351,6 +363,7 @@ initSettingsPanel({
     updateSearchButtonState();
     mapController = null;
     mapReadyPromise = null;
+    settingsDialog.close();
   },
   onCleared: () => {
     currentSettings = { apiKey: '' };
@@ -359,6 +372,10 @@ initSettingsPanel({
     mapReadyPromise = null;
   },
 });
+
+if (!currentSettings.apiKey) {
+  settingsDialog.showModal();
+}
 
 updateSearchButtonState();
 setupAuth();
