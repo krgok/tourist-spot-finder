@@ -1,14 +1,14 @@
-import { initSettingsPanel, loadSettings } from './settings.js?v=20260707-4';
-import { initAuth } from './auth.js?v=20260707-4';
-import { getCurrentPosition } from './geolocation.js?v=20260707-4';
-import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260707-4';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260707-4';
-import { MapController } from './map.js?v=20260707-4';
-import { fetchWikipediaExtract } from './wikipedia.js?v=20260707-4';
-import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260707-4';
-import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260707-4';
-import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260707-4';
-import { fetchRoute } from './routes.js?v=20260707-4';
+import { initSettingsPanel, loadSettings } from './settings.js?v=20260707-5';
+import { initAuth } from './auth.js?v=20260707-5';
+import { getCurrentPosition } from './geolocation.js?v=20260707-5';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260707-5';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260707-5';
+import { MapController } from './map.js?v=20260707-5';
+import { fetchWikipediaExtract } from './wikipedia.js?v=20260707-5';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260707-5';
+import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260707-5';
+import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260707-5';
+import { fetchRoute } from './routes.js?v=20260707-5';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -33,9 +33,24 @@ const locationModeRadios = document.querySelectorAll('input[name="location-mode"
 const locationQueryInput = document.getElementById('location-query-input');
 const sortSelect = document.getElementById('sort-select');
 const travelModeSelect = document.getElementById('travel-mode-select');
+const backToMapBtn = document.getElementById('back-to-map-btn');
+const mapEl = document.getElementById('map');
 
 sortSelect.value = currentSortKey;
 travelModeSelect.value = currentTravelMode;
+
+backToMapBtn.addEventListener('click', () => {
+  mapEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// スマホでは地図と結果一覧が縦積みになるため、地図が画面外に出たら
+// 「地図に戻る」ボタンを表示する(狭い画面かどうかはCSS側のメディアクエリでも制御)。
+new IntersectionObserver(
+  ([entry]) => {
+    backToMapBtn.classList.toggle('hidden', entry.isIntersecting);
+  },
+  { threshold: 0.1 }
+).observe(mapEl);
 
 sortSelect.addEventListener('change', () => {
   currentSortKey = sortSelect.value;

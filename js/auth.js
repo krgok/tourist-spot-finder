@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabaseClient.js?v=20260707-4';
+import { supabase, isSupabaseConfigured } from './supabaseClient.js?v=20260707-5';
 
 export async function initAuth({ onLogin, onLogout }) {
   const signinContainer = document.getElementById('g_id_signin_container');
