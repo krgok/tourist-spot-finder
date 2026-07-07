@@ -1,14 +1,17 @@
 import { initSettingsPanel, loadSettings } from './settings.js';
 import { initAuth } from './auth.js';
 import { getCurrentPosition } from './geolocation.js';
-import { searchNearbyTouristSpots, geocodeLocation } from './places.js';
-import { setStatus, renderResults, renderFavorites, renderHistory } from './ui.js';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo } from './ui.js';
 import { MapController } from './map.js';
 import { fetchWikipediaExtract } from './wikipedia.js';
 import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js';
 import { addFavorite, removeFavorite, listFavorites } from './favorites.js';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js';
 import { fetchRoute } from './routes.js';
+
+const SORT_KEY_STORAGE = 'tourist-app.sortKey';
+const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
 
 let currentSettings = loadSettings();
 let currentPlaces = [];
@@ -18,6 +21,8 @@ let mapReadyPromise = null;
 let currentUser = null;
 let favoritesCache = [];
 let currentGenre = 'sightseeing';
+let currentSortKey = localStorage.getItem(SORT_KEY_STORAGE) || 'recommended';
+let currentTravelMode = localStorage.getItem(TRAVEL_MODE_STORAGE) || 'WALK';
 
 const searchBtn = document.getElementById('search-btn');
 const genreSelect = document.getElementById('genre-select');
@@ -26,6 +31,22 @@ const radiusSelect = document.getElementById('radius-select');
 const countSelect = document.getElementById('count-select');
 const locationModeRadios = document.querySelectorAll('input[name="location-mode"]');
 const locationQueryInput = document.getElementById('location-query-input');
+const sortSelect = document.getElementById('sort-select');
+const travelModeSelect = document.getElementById('travel-mode-select');
+
+sortSelect.value = currentSortKey;
+travelModeSelect.value = currentTravelMode;
+
+sortSelect.addEventListener('change', () => {
+  currentSortKey = sortSelect.value;
+  localStorage.setItem(SORT_KEY_STORAGE, currentSortKey);
+  applySortAndRerender();
+});
+
+travelModeSelect.addEventListener('change', () => {
+  currentTravelMode = travelModeSelect.value;
+  localStorage.setItem(TRAVEL_MODE_STORAGE, currentTravelMode);
+});
 
 function updateSearchButtonState() {
   searchBtn.disabled = !currentSettings.apiKey;
@@ -69,7 +90,7 @@ async function refreshFavorites() {
     return;
   }
   favoritesCache = await listFavorites();
-  renderFavorites(favoritesCache, { onRemove: handleRemoveFavorite });
+  renderFavorites(favoritesCache, { onRemove: handleRemoveFavorite, onSearchNear: handleFavoriteSearchNear });
 }
 
 async function refreshHistory() {
@@ -78,7 +99,44 @@ async function refreshHistory() {
     return;
   }
   const history = await listHistory();
-  renderHistory(history, { onDelete: handleDeleteHistory });
+  renderHistory(history, { onDelete: handleDeleteHistory, onRerun: handleHistoryRerun });
+}
+
+function applyPositionOverride(label) {
+  document.querySelector('input[name="location-mode"][value="custom"]').checked = true;
+  locationQueryInput.classList.remove('hidden');
+  locationQueryInput.value = label;
+}
+
+function handleFavoriteSearchNear(fav) {
+  if (fav.lat == null || fav.lng == null) return;
+  const label = fav.display_name ? `${fav.display_name}の周辺` : 'お気に入り周辺';
+  applyPositionOverride(label);
+  runSearch({ lat: fav.lat, lng: fav.lng, label });
+}
+
+function handleHistoryRerun(entry) {
+  if (entry.meta?.genre && GENRES[entry.meta.genre]) {
+    genreSelect.value = entry.meta.genre;
+    updateGenreDescription();
+  }
+  radiusSelect.value = String(entry.radius_meters);
+  countSelect.value = String(entry.max_count);
+  const label = entry.meta?.locationLabel || '過去の検索地点';
+  applyPositionOverride(label);
+  runSearch({ lat: entry.lat, lng: entry.lng, label });
+}
+
+function applySortAndRerender() {
+  if (!currentPlaces.length) return;
+  currentPlaces = sortPlaces(currentPlaces, currentSortKey, currentPosition);
+  rerenderResults();
+  if (mapController) {
+    mapController.clearMarkers();
+    mapController.renderPlaces(currentPlaces, {
+      onMarkerClick: (index) => mapController.focusPlace(index, currentPlaces[index]),
+    });
+  }
 }
 
 async function handleFavoriteToggle(index) {
@@ -121,6 +179,15 @@ async function handleDeleteHistory(id) {
   }
 }
 
+function formatDuration(seconds) {
+  if (seconds == null) return null;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}分`;
+  const hours = Math.floor(minutes / 60);
+  const remainMinutes = minutes % 60;
+  return `${hours}時間${remainMinutes}分`;
+}
+
 async function handleRouteClick(index) {
   const place = currentPlaces[index];
   if (!currentPosition || !place.location) return;
@@ -129,15 +196,23 @@ async function handleRouteClick(index) {
     return;
   }
   try {
+    updateRouteInfo(index, '経路を取得中...');
     const controller = await ensureMapReady();
     const route = await fetchRoute({
       apiKey: currentSettings.apiKey,
       origin: currentPosition,
       destination: { lat: place.location.latitude, lng: place.location.longitude },
+      travelMode: currentTravelMode,
     });
     controller.renderRoute(route.encodedPolyline);
+
+    const durationText = formatDuration(route.durationSeconds);
+    const distanceText = route.distanceMeters != null ? `${(route.distanceMeters / 1000).toFixed(1)}km` : null;
+    const travelModeLabel = travelModeSelect.selectedOptions[0]?.textContent || '';
+    updateRouteInfo(index, [travelModeLabel, durationText, distanceText].filter(Boolean).join(' / '));
   } catch (err) {
     console.error(err);
+    updateRouteInfo(index, '');
     setStatus('search-status', err.message || '経路の取得に失敗しました。', 'error');
   }
 }
@@ -151,7 +226,7 @@ function rerenderResults() {
   });
 }
 
-async function runSearch() {
+async function runSearch(override) {
   if (!currentSettings.apiKey) {
     setStatus('search-status', 'APIキーを設定してください。', 'error');
     return;
@@ -168,7 +243,11 @@ async function runSearch() {
 
   try {
     let position;
-    if (locationMode === 'custom') {
+    let locationLabel;
+    if (override) {
+      position = { lat: override.lat, lng: override.lng };
+      locationLabel = override.label;
+    } else if (locationMode === 'custom') {
       const query = locationQueryInput.value.trim();
       if (!query) {
         setStatus('search-status', '検索したい場所を入力してください。', 'error');
@@ -176,9 +255,11 @@ async function runSearch() {
       }
       setStatus('search-status', '指定した場所を検索しています...');
       position = await geocodeLocation({ apiKey: currentSettings.apiKey, query });
+      locationLabel = position.formattedAddress || query;
     } else {
       setStatus('search-status', '現在地を取得しています...');
       position = await getCurrentPosition();
+      locationLabel = '現在地';
     }
     currentPosition = position;
     const isLowAccuracy = position.accuracy != null && position.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
@@ -197,13 +278,14 @@ async function runSearch() {
     const wikipediaResults = await Promise.all(
       places.map((place) => fetchWikipediaExtract(place.displayName?.text))
     );
-    currentPlaces = places.map((place, index) => ({ ...place, _wikipedia: wikipediaResults[index] }));
+    const enrichedPlaces = places.map((place, index) => ({ ...place, _wikipedia: wikipediaResults[index] }));
+    currentPlaces = sortPlaces(enrichedPlaces, currentSortKey, position);
 
     const controller = await ensureMapReady();
     if (controller) {
       controller.clearResults();
       controller.clearRoute();
-      controller.setCurrentLocation(position, radiusMeters, locationMode === 'custom' ? '検索地点' : '現在地');
+      controller.setCurrentLocation(position, radiusMeters, locationLabel);
       controller.renderPlaces(currentPlaces, {
         onMarkerClick: (index) => controller.focusPlace(index, currentPlaces[index]),
       });
@@ -217,6 +299,8 @@ async function runSearch() {
         lng: position.lng,
         radiusMeters,
         maxCount,
+        genre,
+        locationLabel,
         places: currentPlaces,
       })
         .then(refreshHistory)
@@ -279,4 +363,4 @@ initSettingsPanel({
 updateSearchButtonState();
 setupAuth();
 
-searchBtn.addEventListener('click', runSearch);
+searchBtn.addEventListener('click', () => runSearch());

@@ -22,12 +22,47 @@ function matchesGenre(place, genreConfig) {
   return isAllowed && !isExcluded;
 }
 
-function bayesianScore(place) {
+export function bayesianScore(place) {
   const v = place.userRatingCount || 0;
   const R = place.rating ?? RANKING.priorMean;
   const m = RANKING.priorWeight;
   const C = RANKING.priorMean;
   return (v / (v + m)) * R + (m / (v + m)) * C;
+}
+
+// Haversine formula. 地図表示や経路計算とは独立した、並び替え専用の概算距離(メートル)。
+export function distanceMeters(from, to) {
+  if (!from || !to) return Infinity;
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(to.lat - from.lat);
+  const dLng = toRad(to.lng - from.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function sortPlaces(places, sortKey, origin) {
+  const sorted = places.slice();
+  switch (sortKey) {
+    case 'distance':
+      return sorted.sort(
+        (a, b) =>
+          distanceMeters(origin, toLatLng(a.location)) - distanceMeters(origin, toLatLng(b.location))
+      );
+    case 'rating':
+      return sorted.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+    case 'reviewCount':
+      return sorted.sort((a, b) => (b.userRatingCount || 0) - (a.userRatingCount || 0));
+    case 'recommended':
+    default:
+      return sorted.sort((a, b) => bayesianScore(b) - bayesianScore(a));
+  }
+}
+
+function toLatLng(location) {
+  return location ? { lat: location.latitude, lng: location.longitude } : null;
 }
 
 function applyQualityFilter(places, genreConfig) {

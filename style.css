@@ -170,6 +170,27 @@ body {
   gap: 16px;
 }
 
+.results-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.results-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.results-toolbar select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
 .map-container {
   height: 600px;
   border-radius: var(--radius);
@@ -243,7 +264,8 @@ body {
 .place-desc { font-size: 13px; line-height: 1.6; margin: 0 0 8px; }
 .place-links { display: flex; gap: 12px; font-size: 13px; margin-bottom: 8px; }
 .place-links a { color: var(--primary); }
-.place-actions { display: flex; gap: 8px; }
+.place-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.route-info { font-size: 12px; color: var(--text-secondary); }
 
 .side-list {
   display: flex;
@@ -265,6 +287,13 @@ body {
 
 .side-item-info strong { font-size: 14px; }
 .side-item-info p { margin: 2px 0 0; }
+
+.side-item-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
 @media (max-width: 860px) {
   .app-main, .results-layout { grid-template-columns: 1fr; }

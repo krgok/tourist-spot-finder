@@ -58,6 +58,9 @@
         <option value="kids">子供向け</option>
         <option value="cafe">お茶</option>
         <option value="work">仕事</option>
+        <option value="onsen">温泉</option>
+        <option value="shrine_temple">神社仏閣</option>
+        <option value="museum">美術館・博物館</option>
       </select>
       <p id="genre-description" class="hint"></p>
     </div>
@@ -86,13 +89,33 @@
         <option value="20">20件</option>
       </select>
     </div>
+    <div class="form-row">
+      <label for="travel-mode-select">経路の移動手段</label>
+      <select id="travel-mode-select">
+        <option value="WALK" selected>徒歩</option>
+        <option value="DRIVE">車</option>
+        <option value="BICYCLE">自転車</option>
+        <option value="TRANSIT">公共交通機関</option>
+      </select>
+    </div>
     <button id="search-btn" class="btn btn-primary" disabled>周辺のスポットを検索</button>
     <p id="search-status" class="status-msg"></p>
   </section>
 
   <section class="results-layout">
     <div id="map" class="map-container"></div>
-    <div id="results-list" class="results-list"></div>
+    <div class="results-column">
+      <div class="results-toolbar">
+        <label for="sort-select">並び替え</label>
+        <select id="sort-select">
+          <option value="recommended" selected>おすすめ順</option>
+          <option value="distance">近い順</option>
+          <option value="rating">評価が高い順</option>
+          <option value="reviewCount">レビューが多い順</option>
+        </select>
+      </div>
+      <div id="results-list" class="results-list"></div>
+    </div>
   </section>
 
   <section id="favorites-panel" class="panel">
@@ -108,6 +131,6 @@
   </section>
 </main>
 
-<script type="module" src="js/app.js?v=20260706-3"></script>
+<script type="module" src="js/app.js?v=20260707-1"></script>
 </body>
 </html>

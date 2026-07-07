@@ -1,5 +1,6 @@
 import { buildPhotoUrl } from './places.js';
 import { buildDescription } from './description.js';
+import { GENRES } from './config.js';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);
@@ -113,6 +114,10 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     });
     actionsEl.appendChild(routeBtn);
 
+    const routeInfoEl = document.createElement('span');
+    routeInfoEl.className = 'route-info';
+    actionsEl.appendChild(routeInfoEl);
+
     body.appendChild(heading);
     body.appendChild(ratingEl);
     body.appendChild(addressEl);
@@ -132,7 +137,13 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
   });
 }
 
-export function renderFavorites(favorites, { onRemove } = {}) {
+export function updateRouteInfo(index, text) {
+  const card = document.querySelector(`.place-card[data-index="${index}"]`);
+  const el = card?.querySelector('.route-info');
+  if (el) el.textContent = text;
+}
+
+export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
   const container = document.getElementById('favorites-list');
   container.innerHTML = '';
 
@@ -155,19 +166,32 @@ export function renderFavorites(favorites, { onRemove } = {}) {
     info.appendChild(title);
     info.appendChild(address);
 
+    const buttonsEl = document.createElement('div');
+    buttonsEl.className = 'side-item-buttons';
+
+    if (fav.lat != null && fav.lng != null) {
+      const searchNearBtn = document.createElement('button');
+      searchNearBtn.className = 'btn btn-small';
+      searchNearBtn.type = 'button';
+      searchNearBtn.textContent = 'この周辺を検索';
+      searchNearBtn.addEventListener('click', () => onSearchNear?.(fav));
+      buttonsEl.appendChild(searchNearBtn);
+    }
+
     const removeBtn = document.createElement('button');
     removeBtn.className = 'btn btn-small';
     removeBtn.type = 'button';
     removeBtn.textContent = '削除';
     removeBtn.addEventListener('click', () => onRemove?.(fav.place_id));
+    buttonsEl.appendChild(removeBtn);
 
     item.appendChild(info);
-    item.appendChild(removeBtn);
+    item.appendChild(buttonsEl);
     container.appendChild(item);
   });
 }
 
-export function renderHistory(history, { onDelete } = {}) {
+export function renderHistory(history, { onDelete, onRerun } = {}) {
   const container = document.getElementById('history-list');
   container.innerHTML = '';
 
@@ -185,21 +209,34 @@ export function renderHistory(history, { onDelete } = {}) {
     const title = document.createElement('strong');
     const radiusKm = entry.radius_meters / 1000;
     const date = new Date(entry.searched_at).toLocaleString('ja-JP');
-    title.textContent = `${date} - 半径${radiusKm}km / ${entry.max_count}件`;
+    const genreLabel = entry.meta?.genre ? GENRES[entry.meta.genre]?.label : null;
+    const locationLabel = entry.meta?.locationLabel;
+    title.textContent = `${date} - ${genreLabel ? genreLabel + ' / ' : ''}半径${radiusKm}km / ${entry.max_count}件`;
     const summary = document.createElement('p');
     summary.className = 'hint';
-    summary.textContent = `${entry.result_count ?? 0}件ヒット`;
+    summary.textContent = `${locationLabel ? locationLabel + ' - ' : ''}${entry.result_count ?? 0}件ヒット`;
     info.appendChild(title);
     info.appendChild(summary);
+
+    const buttonsEl = document.createElement('div');
+    buttonsEl.className = 'side-item-buttons';
+
+    const rerunBtn = document.createElement('button');
+    rerunBtn.className = 'btn btn-small';
+    rerunBtn.type = 'button';
+    rerunBtn.textContent = 'この条件で再検索';
+    rerunBtn.addEventListener('click', () => onRerun?.(entry));
+    buttonsEl.appendChild(rerunBtn);
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'btn btn-small';
     deleteBtn.type = 'button';
     deleteBtn.textContent = '削除';
     deleteBtn.addEventListener('click', () => onDelete?.(entry.id));
+    buttonsEl.appendChild(deleteBtn);
 
     item.appendChild(info);
-    item.appendChild(deleteBtn);
+    item.appendChild(buttonsEl);
     container.appendChild(item);
   });
 }

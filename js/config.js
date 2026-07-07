@@ -75,6 +75,46 @@ export const GENRES = {
     minRatingCount: 1,
     favoriteCategory: 'other',
   },
+  onsen: {
+    label: '温泉',
+    description: '温泉施設・スパなど、ゆったりくつろげる場所を検索します。',
+    includedPrimaryTypes: ['spa'],
+    allowedTypes: ['spa'],
+    excludedTypes: [],
+    favoriteCategory: 'other',
+  },
+  shrine_temple: {
+    label: '神社仏閣',
+    description: '神社・寺院など、歴史ある信仰の場を検索します。',
+    includedPrimaryTypes: ['place_of_worship'],
+    allowedTypes: ['place_of_worship'],
+    excludedTypes: [],
+    favoriteCategory: 'tourist_attraction',
+  },
+  museum: {
+    label: '美術館・博物館',
+    description: '美術館・博物館・ギャラリーなど、文化芸術を楽しめる場所を検索します。',
+    includedPrimaryTypes: ['museum', 'art_gallery'],
+    allowedTypes: ['museum', 'art_gallery'],
+    excludedTypes: [],
+    favoriteCategory: 'tourist_attraction',
+  },
+};
+
+// 検索結果の並び替え基準。結果はすでに取得済みのプールから選ばれているため、
+// 並び替えの切り替えはAPI再呼び出し不要のクライアント処理。
+export const SORT_OPTIONS = {
+  recommended: { label: 'おすすめ順' },
+  distance: { label: '近い順' },
+  rating: { label: '評価が高い順' },
+  reviewCount: { label: 'レビューが多い順' },
+};
+
+export const TRAVEL_MODES = {
+  WALK: { label: '徒歩' },
+  DRIVE: { label: '車' },
+  BICYCLE: { label: '自転車' },
+  TRANSIT: { label: '公共交通機関' },
 };
 
 // ベイズ推定平均によるスコアリング(単純なrating降順だと「評価4.9・レビュー2件」が

@@ -60,9 +60,13 @@ export class MapController {
     this.infoWindow = new InfoWindow();
   }
 
-  clearResults() {
+  clearMarkers() {
     this.markers.forEach((m) => (m.map = null));
     this.markers = [];
+  }
+
+  clearResults() {
+    this.clearMarkers();
     if (this.circle) {
       this.circle.setMap(null);
       this.circle = null;
