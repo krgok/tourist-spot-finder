@@ -151,13 +151,20 @@ export class MapController {
     this.map.fitBounds(bounds);
   }
 
+  // マーカー番号クリック時に使う。結果一覧の該当カードへの自動スクロールで
+  // 詳細は既に表示されるため、地図上に名前の吹き出しは出さない(密集地では
+  // 隣のマーカーと吹き出しが重なって見づらくなるため)。
+  panToMarker(index) {
+    const marker = this.markers[index];
+    if (!marker) return;
+    this.map.panTo(marker.position);
+  }
+
   focusPlace(index, place) {
     const marker = this.markers[index];
     if (!marker) return;
     this.map.panTo(marker.position);
-    this.infoWindow.setContent(
-      `<strong>${place.displayName?.text || ''}</strong><br>${place.formattedAddress || ''}`
-    );
+    this.infoWindow.setContent(`<strong>${place.displayName?.text || ''}</strong>`);
     this.infoWindow.open({ map: this.map, anchor: marker });
   }
 }

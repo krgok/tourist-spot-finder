@@ -1,6 +1,6 @@
-import { buildPhotoUrl } from './places.js?v=20260707-5';
-import { buildDescription } from './description.js?v=20260707-5';
-import { GENRES } from './config.js?v=20260707-5';
+import { buildPhotoUrl } from './places.js?v=20260708-1';
+import { buildDescription } from './description.js?v=20260708-1';
+import { GENRES } from './config.js?v=20260708-1';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);
@@ -25,7 +25,6 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     const photoUrl = buildPhotoUrl(place.photos?.[0], apiKey);
     const description = buildDescription(place);
     const name = place.displayName?.text || '名称不明';
-    const address = place.formattedAddress || '';
 
     const img = document.createElement('img');
     img.className = 'place-photo';
@@ -54,10 +53,6 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
       typeBadge.textContent = place.primaryTypeDisplayName.text;
       ratingEl.appendChild(typeBadge);
     }
-
-    const addressEl = document.createElement('p');
-    addressEl.className = 'place-address';
-    addressEl.textContent = address;
 
     const descEl = document.createElement('p');
     descEl.className = 'place-desc';
@@ -120,7 +115,6 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
 
     body.appendChild(heading);
     body.appendChild(ratingEl);
-    body.appendChild(addressEl);
     body.appendChild(descEl);
     body.appendChild(linksEl);
     body.appendChild(actionsEl);

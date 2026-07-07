@@ -1,14 +1,14 @@
-import { initSettingsPanel, loadSettings } from './settings.js?v=20260707-5';
-import { initAuth } from './auth.js?v=20260707-5';
-import { getCurrentPosition } from './geolocation.js?v=20260707-5';
-import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260707-5';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260707-5';
-import { MapController } from './map.js?v=20260707-5';
-import { fetchWikipediaExtract } from './wikipedia.js?v=20260707-5';
-import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260707-5';
-import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260707-5';
-import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260707-5';
-import { fetchRoute } from './routes.js?v=20260707-5';
+import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-1';
+import { initAuth } from './auth.js?v=20260708-1';
+import { getCurrentPosition } from './geolocation.js?v=20260708-1';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-1';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260708-1';
+import { MapController } from './map.js?v=20260708-1';
+import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-1';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260708-1';
+import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-1';
+import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-1';
+import { fetchRoute } from './routes.js?v=20260708-1';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -162,7 +162,7 @@ function applySortAndRerender() {
     mapController.clearMarkers();
     mapController.renderPlaces(currentPlaces, {
       onMarkerClick: (index) => {
-        mapController.focusPlace(index, currentPlaces[index]);
+        mapController.panToMarker(index);
         scrollToCard(index);
       },
     });
@@ -318,7 +318,7 @@ async function runSearch(override) {
       controller.setCurrentLocation(position, radiusMeters, locationLabel);
       controller.renderPlaces(currentPlaces, {
         onMarkerClick: (index) => {
-          controller.focusPlace(index, currentPlaces[index]);
+          controller.panToMarker(index);
           scrollToCard(index);
         },
       });

@@ -1,4 +1,4 @@
-import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js?v=20260707-5';
+import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js?v=20260708-1';
 
 // アプリのUIは日本語固定のため、Places APIへのリクエストも常に日本語で行う。
 // languageCodeをブラウザ言語に連動させていた頃は、editorialSummaryやレビューが

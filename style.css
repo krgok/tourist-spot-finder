@@ -328,7 +328,6 @@ body {
   border-radius: 999px;
   padding: 1px 8px;
 }
-.place-address { font-size: 12px; color: var(--text-secondary); margin: 2px 0 6px; }
 .place-desc { font-size: 13px; line-height: 1.6; margin: 0 0 8px; }
 .place-links { display: flex; gap: 12px; font-size: 13px; margin-bottom: 8px; }
 .place-links a { color: var(--primary); }
