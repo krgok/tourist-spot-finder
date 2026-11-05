@@ -1,18 +1,20 @@
 import { STORAGE_KEYS } from './config.js?v=20260708-4';
 import { checkApiKeyFormat } from './validate.js?v=20260708-4';
+import { storageGet, storageSet, storageRemove } from './storage.js?v=20260708-4';
 
 export function loadSettings() {
   return {
-    apiKey: localStorage.getItem(STORAGE_KEYS.API_KEY) || '',
+    apiKey: storageGet(STORAGE_KEYS.API_KEY) || '',
   };
 }
 
+// 戻り値: 端末に永続化できたか(false: プライベートブラウズ等。このタブを閉じると消える)
 export function saveSettings({ apiKey }) {
-  localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+  return storageSet(STORAGE_KEYS.API_KEY, apiKey);
 }
 
 export function clearSettings() {
-  localStorage.removeItem(STORAGE_KEYS.API_KEY);
+  storageRemove(STORAGE_KEYS.API_KEY);
 }
 
 export function initSettingsPanel({ onSaved, onCleared }) {
@@ -38,9 +40,12 @@ export function initSettingsPanel({ onSaved, onCleared }) {
       statusEl.className = 'status-msg error';
       return;
     }
-    saveSettings({ apiKey: check.key });
-    statusEl.textContent = check.level === 'warning' ? `保存しました。${check.message}` : '設定を保存しました。';
-    statusEl.className = check.level === 'warning' ? 'status-msg' : 'status-msg success';
+    const persisted = saveSettings({ apiKey: check.key });
+    const notes = [];
+    if (check.level === 'warning') notes.push(check.message);
+    if (!persisted) notes.push('このブラウザでは端末に保存できません(プライベートブラウズ等)。このタブを閉じるとキーは消えます。');
+    statusEl.textContent = ['設定を保存しました。', ...notes].join(' ');
+    statusEl.className = notes.length ? 'status-msg' : 'status-msg success';
     onSaved({ apiKey: check.key });
   });
 

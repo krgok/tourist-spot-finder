@@ -1,4 +1,7 @@
 import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js?v=20260708-4';
+import { postGoogleApi } from './http.js?v=20260708-4';
+import { clampSearchParams } from './params.js?v=20260708-4';
+import { isValidLatLng } from './validate.js?v=20260708-4';
 
 // アプリのUIは日本語固定のため、Places APIへのリクエストも常に日本語で行う。
 // languageCodeをブラウザ言語に連動させていた頃は、editorialSummaryやレビューが
@@ -108,43 +111,46 @@ export function applyQualityFilter(places, genreConfig) {
   return { filtered: places, relaxed: places.length > 0 };
 }
 
-export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters, maxCount, genre }) {
+// Nearby Search のリクエスト本文(通信を含まない。テスト用に分離)。
+export function buildNearbyRequestBody({ lat, lng, radiusMeters, genreConfig }) {
+  return {
+    includedPrimaryTypes: genreConfig.includedPrimaryTypes,
+    maxResultCount: FETCH_POOL_SIZE,
+    rankPreference: 'POPULARITY',
+    languageCode: REQUEST_LANGUAGE_CODE,
+    locationRestriction: {
+      circle: {
+        center: { latitude: lat, longitude: lng },
+        radius: radiusMeters,
+      },
+    },
+  };
+}
+
+export async function searchNearbyTouristSpots({
+  apiKey,
+  lat,
+  lng,
+  radiusMeters: rawRadius,
+  maxCount: rawMaxCount,
+  genre,
+  fetchImpl,
+}) {
+  if (!isValidLatLng(lat, lng)) {
+    throw new Error('検索地点の緯度・経度が正しくありません。場所を指定し直してください。');
+  }
+  // API の課金・負荷が増えないよう、UI 以外から来た値でも上限を超えさせない。
+  const { radiusMeters, maxCount } = clampSearchParams({ radiusMeters: rawRadius, maxCount: rawMaxCount });
   const genreConfig = GENRES[genre] || GENRES.sightseeing;
 
-  const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': PLACE_FIELD_MASK,
-    },
-    body: JSON.stringify({
-      includedPrimaryTypes: genreConfig.includedPrimaryTypes,
-      maxResultCount: FETCH_POOL_SIZE,
-      rankPreference: 'POPULARITY',
-      languageCode: REQUEST_LANGUAGE_CODE,
-      locationRestriction: {
-        circle: {
-          center: { latitude: lat, longitude: lng },
-          radius: radiusMeters,
-        },
-      },
-    }),
+  const data = await postGoogleApi({
+    url: 'https://places.googleapis.com/v1/places:searchNearby',
+    apiKey,
+    fieldMask: PLACE_FIELD_MASK,
+    body: buildNearbyRequestBody({ lat, lng, radiusMeters, genreConfig }),
+    apiLabel: 'Places API (New)',
+    fetchImpl,
   });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    const message = body?.error?.message || `検索に失敗しました (HTTP ${response.status})`;
-    if (response.status === 403) {
-      throw new Error('APIキーが無効か、Places API (New) が有効化されていません: ' + message);
-    }
-    if (response.status === 429) {
-      throw new Error('APIの利用上限に達しました: ' + message);
-    }
-    throw new Error(message);
-  }
-
-  const data = await response.json();
   const rawPlaces = data.places || [];
 
   const genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig)).filter(isOperational);
@@ -159,39 +165,28 @@ export async function searchNearbyTouristSpots({ apiKey, lat, lng, radiusMeters,
   return { places: ranked, relaxed, poolSize: rawPlaces.length, matchedSize: genreMatched.length };
 }
 
-export async function geocodeLocation({ apiKey, query }) {
-  const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': 'places.location,places.formattedAddress,places.displayName',
-    },
-    body: JSON.stringify({
-      textQuery: query,
-      languageCode: REQUEST_LANGUAGE_CODE,
-      maxResultCount: 1,
-    }),
+export async function geocodeLocation({ apiKey, query, fetchImpl }) {
+  const text = String(query ?? '').trim().slice(0, 200);
+  if (!text) throw new Error('検索したい場所を入力してください。');
+
+  const data = await postGoogleApi({
+    url: 'https://places.googleapis.com/v1/places:searchText',
+    apiKey,
+    fieldMask: 'places.location,places.formattedAddress,places.displayName',
+    body: { textQuery: text, languageCode: REQUEST_LANGUAGE_CODE, maxResultCount: 1 },
+    apiLabel: 'Places API (New)',
+    fetchImpl,
   });
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    const message = body?.error?.message || `場所の検索に失敗しました (HTTP ${response.status})`;
-    if (response.status === 403) {
-      throw new Error('APIキーが無効か、Places API (New) が有効化されていません: ' + message);
-    }
-    throw new Error(message);
-  }
-
-  const data = await response.json();
   const place = data.places?.[0];
-  if (!place?.location) {
-    throw new Error(`「${query}」に一致する場所が見つかりませんでした。`);
+  const { latitude, longitude } = place?.location ?? {};
+  if (!isValidLatLng(latitude, longitude)) {
+    throw new Error(`「${text}」に一致する場所が見つかりませんでした。`);
   }
 
   return {
-    lat: place.location.latitude,
-    lng: place.location.longitude,
+    lat: latitude,
+    lng: longitude,
     formattedAddress: place.formattedAddress,
     displayName: place.displayName?.text,
   };

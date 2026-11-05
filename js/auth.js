@@ -1,7 +1,8 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient.js?v=20260708-4';
 import { safeHttpsUrl } from './safeUrl.js?v=20260708-4';
+import { createAuthTracker } from './authState.js?v=20260708-4';
 
-export async function initAuth({ onLogin, onLogout }) {
+export async function initAuth({ onLogin, onLogout, onError = () => {} }) {
   const signinContainer = document.getElementById('g_id_signin_container');
   const userInfoEl = document.getElementById('user-info');
   const userNameEl = document.getElementById('user-name');
@@ -32,37 +33,62 @@ export async function initAuth({ onLogin, onLogout }) {
   function renderSignedOut() {
     signinContainer.classList.remove('hidden');
     userInfoEl.classList.add('hidden');
+    userAvatarEl.removeAttribute('src');
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // ログイン後のデータ取得などで例外が出ても、認証の通知処理を止めない。
+  const tracker = createAuthTracker({
+    onLogin: (user) => Promise.resolve(onLogin(user)).catch((err) => onError(err?.message || String(err))),
+    onLogout: () => Promise.resolve(onLogout()).catch((err) => onError(err?.message || String(err))),
+  });
 
-  if (session?.user) {
-    renderUser(session.user);
-    onLogin(session.user);
-  } else {
-    renderSignedOut();
-  }
-
-  supabase.auth.onAuthStateChange((_event, newSession) => {
-    if (newSession?.user) {
-      renderUser(newSession.user);
-      onLogin(newSession.user);
+  function applySession(session) {
+    if (session?.user) {
+      renderUser(session.user);
     } else {
       renderSignedOut();
-      onLogout();
+    }
+    tracker.apply(session?.user ?? null);
+  }
+
+  // 先にリスナーを登録する(後から登録すると、その間のログアウト等を取りこぼす)。
+  // コールバック内で supabase の他のメソッドを await すると(ライブラリ内の排他制御で)
+  // デッドロックするため、公式の推奨どおり setTimeout で処理を切り離す。
+  supabase.auth.onAuthStateChange((_event, newSession) => {
+    setTimeout(() => applySession(newSession), 0);
+  });
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    applySession(session);
+  } catch (err) {
+    console.error(err);
+    renderSignedOut();
+    onError('ログイン状態を確認できませんでした。通信状況を確認して、ページを再読み込みしてください。');
+  }
+
+  loginBtn.addEventListener('click', async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.error(err);
+      onError('ログインを開始できませんでした。通信状況を確認して、もう一度お試しください。');
     }
   });
 
-  loginBtn.addEventListener('click', async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + window.location.pathname },
-    });
-  });
-
   logoutBtn.addEventListener('click', async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      console.error(err);
+      onError('ログアウトできませんでした。通信状況を確認して、もう一度お試しください。');
+    }
   });
 }
