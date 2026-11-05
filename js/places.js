@@ -3,6 +3,8 @@ import { postGoogleApi } from './http.js?v=20260708-4';
 import { clampSearchParams } from './params.js?v=20260708-4';
 import { normalizeLanguage, normalizeRegion } from './region.js?v=20260708-4';
 import { isValidLatLng } from './validate.js?v=20260708-4';
+import { weatherMultiplier } from './weather.js?v=20260708-4';
+import { filterOpenNow } from './openingHours.js?v=20260708-4';
 
 // Places API へ要求する言語は、画面で選んだ「表示言語」(既定は日本語)。
 // ブラウザの言語には連動させない(連動させていた頃、editorialSummary やレビューが
@@ -68,7 +70,8 @@ export function distanceMeters(from, to) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function sortPlaces(places, sortKey, origin, radiusMeters) {
+// weather / genreConfig は任意。雨・暑さのとき、「おすすめ順」でだけ屋内を少し上げる。
+export function sortPlaces(places, sortKey, origin, radiusMeters, { weather = null, genreConfig = null } = {}) {
   const sorted = places.slice();
   switch (sortKey) {
     case 'distance':
@@ -82,9 +85,10 @@ export function sortPlaces(places, sortKey, origin, radiusMeters) {
       return sorted.sort((a, b) => (b.userRatingCount || 0) - (a.userRatingCount || 0));
     case 'recommended':
     default:
-      return sorted.sort(
-        (a, b) => recommendedScore(b, origin, radiusMeters) - recommendedScore(a, origin, radiusMeters)
-      );
+      return sorted.sort((a, b) => {
+        const score = (p) => recommendedScore(p, origin, radiusMeters) * weatherMultiplier(p, genreConfig, weather);
+        return score(b) - score(a);
+      });
   }
 }
 
@@ -138,6 +142,7 @@ export async function searchNearbyTouristSpots({
   genre,
   language,
   region,
+  openNowOnly = false,
   fetchImpl,
 }) {
   if (!isValidLatLng(lat, lng)) {
@@ -164,7 +169,10 @@ export async function searchNearbyTouristSpots({
   });
   const rawPlaces = data.places || [];
 
-  const genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig)).filter(isOperational);
+  let genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig)).filter(isOperational);
+  // 「今開いている場所だけ」: 営業時間外だと分かっている場所を、件数を切り詰める前に除く
+  // (営業時間が不明な場所は残す)。
+  if (openNowOnly) genreMatched = filterOpenNow(genreMatched);
   const { filtered, relaxed } = applyQualityFilter(genreMatched, genreConfig);
 
   const origin = { lat, lng };

@@ -17,7 +17,7 @@
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com;
   font-src https://fonts.gstatic.com;
-  connect-src 'self' https://qosrxcrbjlvrbuyybqhr.supabase.co https://places.googleapis.com https://routes.googleapis.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.wikipedia.org https://esm.sh data: blob:;
+  connect-src 'self' https://qosrxcrbjlvrbuyybqhr.supabase.co https://places.googleapis.com https://routes.googleapis.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.wikipedia.org https://api.open-meteo.com https://esm.sh data: blob:;
   frame-src https://*.google.com;
   worker-src blob:;
   object-src 'none';
@@ -165,11 +165,18 @@
         <p id="location-hint" class="hint">「現在地」を使うには、ブラウザの位置情報の許可が必要です。許可したくない場合や取得できない場合は「場所を指定」で地名を入力してください。</p>
       </div>
       <div class="form-row form-row-wide">
+        <div class="check-options">
+          <label><input type="checkbox" id="open-now-only"> 今開いている場所だけ(営業時間が不明な場所は表示)</label>
+          <label><input type="checkbox" id="use-weather" checked> 天気を考慮する(雨・暑い日は屋内を上位に。検索地点の座標を天気サービス Open-Meteo に送ります)</label>
+        </div>
+      </div>
+      <div class="form-row form-row-wide">
         <button id="search-btn" class="btn btn-primary" disabled>周辺のスポットを検索</button>
       </div>
     </div>
     <p id="genre-description" class="hint"></p>
     <p id="search-status" class="status-msg" role="status" aria-live="polite"></p>
+    <p id="weather-info" class="hint" role="status"></p>
   </section>
 
   <section class="results-layout">

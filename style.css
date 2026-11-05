@@ -480,6 +480,12 @@ body {
   * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
+.check-options { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.check-options label { display: flex; align-items: flex-start; gap: 6px; font-weight: normal; }
+.open-badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 1px 8px; border: 1px solid; }
+.open-badge.open { color: #146c2e; background: #e6f4ea; border-color: #b7dfc2; }
+.open-badge.closed { color: #5f3b00; background: #fef7e0; border-color: #f0d58c; }
+
 /* お気に入りのメモ・訪問済み */
 .fav-status { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--primary-dark); }
 .fav-status.visited { color: #146c2e; }

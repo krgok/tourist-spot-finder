@@ -24,6 +24,10 @@ export const PLACE_FIELD_MASK = [
   'places.primaryType',
   'places.primaryTypeDisplayName',
   'places.regularOpeningHours',
+  // 営業中の判定・「〜まで/〜から」の表示用。utcOffsetMinutes は現地時刻への換算用。
+  // (料金区分: currentOpeningHours は regularOpeningHours と同じ区分のはずだが、Google の最新の料金表で要確認)
+  'places.currentOpeningHours',
+  'places.utcOffsetMinutes',
   'places.priceLevel',
   'places.businessStatus',
 ].join(',');
