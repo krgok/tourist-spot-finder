@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { postGoogleApi, describeHttpError, describeNetworkError } from '../js/http.js';
+import { postGoogleApi, describeHttpError, describeNetworkError, timeoutSignal } from '../js/http.js';
 import { searchNearbyTouristSpots, geocodeLocation, buildNearbyRequestBody } from '../js/places.js';
 import { fetchRoute } from '../js/routes.js';
 import { fetchWikipediaExtract } from '../js/wikipedia.js';
@@ -164,4 +164,70 @@ test('fetchWikipediaExtract: 正常系は日本語版の要約と出典URLを返
   let called = false;
   assert.equal(await fetchWikipediaExtract('x', { lat: 999, lng: 0 }, { fetchImpl: async () => { called = true; } }), null);
   assert.equal(called, false);
+});
+
+// AbortSignal.timeout が無い環境(iOS 15 以前の Safari など)を再現する
+async function withoutAbortSignalTimeout(fn) {
+  const original = AbortSignal.timeout;
+  AbortSignal.timeout = undefined;
+  try {
+    return await fn();
+  } finally {
+    AbortSignal.timeout = original;
+  }
+}
+
+test('postGoogleApi: AbortSignal.timeout が無くても、TypeError にならず通常どおり呼べる', async () => {
+  await withoutAbortSignalTimeout(async () => {
+    let seen;
+    const fetchImpl = async (url, init) => { seen = init; return { ok: true, status: 200, json: async () => ({ ok: 1 }) }; };
+    const data = await postGoogleApi({ url: 'https://x.test/', apiKey: KEY, fieldMask: 'a', body: {}, apiLabel: 'X', fetchImpl });
+    assert.deepEqual(data, { ok: 1 });
+    assert.ok(seen.signal instanceof AbortSignal);
+    assert.equal(seen.signal.aborted, false);
+  });
+});
+
+test('postGoogleApi: AbortSignal.timeout が無い環境でも、時間切れは「タイムアウト」と分類される(通信失敗とは区別)', async () => {
+  await withoutAbortSignalTimeout(async () => {
+    const fetchImpl = (url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(init.signal.reason ?? Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    });
+    await assert.rejects(
+      postGoogleApi({ url: 'u', apiKey: KEY, fieldMask: 'f', body: {}, apiLabel: 'X', timeoutMs: 20, fetchImpl }),
+      /タイムアウト/
+    );
+    // 通信失敗(TypeError)は、これまでどおり「通信に失敗しました」
+    await assert.rejects(
+      postGoogleApi({ url: 'u', apiKey: KEY, fieldMask: 'f', body: {}, apiLabel: 'X', fetchImpl: async () => { throw new TypeError('Failed to fetch'); } }),
+      /通信に失敗しました|インターネットに接続されていません/
+    );
+  });
+});
+
+test('timeoutSignal(代替実装): clear() でタイマーを止める。親の signal が中断されたら連動して中断する', async () => {
+  await withoutAbortSignalTimeout(async () => {
+    const t = timeoutSignal(20);
+    t.clear();
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(t.signal.aborted, false, 'clear 後は時間切れにならない');
+
+    const parent = new AbortController();
+    const t2 = timeoutSignal(10000, parent.signal);
+    parent.abort();
+    assert.equal(t2.signal.aborted, true);
+    t2.clear();
+
+    const t3 = timeoutSignal(15);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(t3.signal.aborted, true);
+    assert.equal(t3.signal.reason?.name, 'TimeoutError');
+    t3.clear();
+  });
+});
+
+test('timeoutSignal(標準実装): AbortSignal.timeout があるときはそれを使う', () => {
+  const t = timeoutSignal(1000);
+  assert.ok(t.signal instanceof AbortSignal);
+  t.clear();
 });

@@ -1,8 +1,9 @@
 // Google マップ(アプリ/Web)で開くための URL を組み立てる(通信なし・API 課金なし)。
 // 仕様: Google Maps URLs (https://www.google.com/maps/dir/?api=1&...)
 // - 経由地は最大 9 件(目的地を含めて 10 か所)。超える分は切り捨て、truncated で知らせる。
-// - 出発地(origin)は、指定されたときだけ入れる。省略すると、開いた端末の現在地が出発地になる
-//   (共有リンクに自分の現在地を入れないため、既定は省略)。
+// - 出発地(origin)は、指定されたときだけ入れる。省略すると、開いた端末の現在地が出発地になる。
+//   自分のマップアプリで開くリンクだけに入れてよい。他人に送る共有リンクには、出発地(自宅・ホテル等)を入れない
+//   (buildShareDirectionsUrl を使う)。
 import { isValidLatLng } from './validate.js?v=20260708-4';
 
 export const MAX_STOPS = 10; // 経由地 9 + 目的地 1
@@ -45,6 +46,11 @@ export function buildDirectionsUrl({ stops, origin = null, travelMode = 'WALK' }
   if (TRAVEL_MODES[travelMode]) params.set('travelmode', TRAVEL_MODES[travelMode]);
 
   return { url: `${BASE}/dir/?${params}`, count: used.length, truncated };
+}
+
+// 他人に送る共有リンク用。出発地は、渡されても必ず入れない(自宅・ホテル・現在地が共有先に伝わらないようにする)。
+export function buildShareDirectionsUrl({ origin: _ignored, ...rest }) {
+  return buildDirectionsUrl({ ...rest, origin: null });
 }
 
 // 1 か所を Google マップで開く(名前があれば検索語に使う)

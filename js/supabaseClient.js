@@ -11,6 +11,16 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   db: { schema: 'tourist_app' },
 });
 
+// ログイン中の利用者のアクセストークン(サーバー側の中継へ送る)。ログインしていなければ null。
+export async function getAccessToken() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function isSupabaseConfigured() {
   return !SUPABASE_URL.includes('YOUR-PROJECT-REF') && !SUPABASE_ANON_KEY.includes('YOUR-SUPABASE-ANON-KEY');
 }

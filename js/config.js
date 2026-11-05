@@ -8,6 +8,11 @@ export const SUPABASE_URL = 'https://qosrxcrbjlvrbuyybqhr.supabase.co';
 export const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvc3J4Y3Jiamx2cmJ1eXlicWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNjAxNjYsImV4cCI6MjA5NzYzNjE2Nn0.4RVVC_YN-KUYUcWmSl1S_zdIB4XdYuDxrMkFefwgqfQ';
 
+// サーバー側の中継(Supabase Edge Function。supabase/functions/places-proxy)の URL。
+// 空(既定)なら無効で、従来どおり利用者自身の API キーをブラウザから使う。
+// 設定する場合は https://<プロジェクト>.supabase.co/functions/v1/places-proxy の形式(CSP の connect-src と同じホスト)。
+export const API_PROXY_URL = '';
+
 export const PLACE_FIELD_MASK = [
   'places.id',
   'places.displayName',

@@ -1,6 +1,10 @@
 # バージョンアップの提案 2026-11
 
-**これは提案だけで、実装していません。** 2026-11 の点検で分かった現状の課題(`docs/audit-2026-11.md`)と、
+**この文書を書いた時点では、提案だけで実装していませんでした。**
+> **実装状況(2026-11-05 追記)**: 案 1・2・3・5・6 は、次の PR で実装しました。案 4(子連れフィルター)・7(旅程)・8(家族との共有リスト)は未実装です。
+> 案 1 = [#7](https://github.com/krgok/tourist-spot-finder/pull/7)/案 2 = [#8 保存した起点](https://github.com/krgok/tourist-spot-finder/pull/8)・[#9 地域・言語](https://github.com/krgok/tourist-spot-finder/pull/9)/
+> 案 3 = [#10 DB](https://github.com/krgok/tourist-spot-finder/pull/10)・[#11 アプリ](https://github.com/krgok/tourist-spot-finder/pull/11)/案 6 = [#12](https://github.com/krgok/tourist-spot-finder/pull/12)/案 5 = [#13](https://github.com/krgok/tourist-spot-finder/pull/13)。
+> 案 2 のうち「地図上のクリックで起点を指定」は未実装です。各 PR の「確認できていない点」を、マージ前にお読みください。 2026-11 の点検で分かった現状の課題(`docs/audit-2026-11.md`)と、
 利用者(日本語話者の個人・家族。バンコク在住の家族が使う想定)の使い方を踏まえて、現実的なものを選びました。
 
 規模の目安: **小**=半日、**中**=1〜2日、**大**=それ以上。

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { openStatus, filterOpenNow, toPlaceLocal } from '../js/openingHours.js';
-import { buildWeatherUrl, parseWeather, describeWeather, fetchWeather, placeSetting, weatherMultiplier, WEATHER_ADJUST } from '../js/weather.js';
+import { roundCoord, buildWeatherUrl, parseWeather, describeWeather, fetchWeather, placeSetting, weatherMultiplier, WEATHER_ADJUST } from '../js/weather.js';
 import { sortPlaces, searchNearbyTouristSpots } from '../js/places.js';
 import { GENRES, PLACE_FIELD_MASK } from '../js/config.js';
 
@@ -69,7 +69,8 @@ const REAL = {
 test('buildWeatherUrl: 座標・現在値・降水確率を要求', () => {
   const u = new URL(buildWeatherUrl({ lat: 13.7563, lng: 100.5018 }));
   assert.equal(u.host, 'api.open-meteo.com');
-  assert.equal(u.searchParams.get('latitude'), '13.7563');
+  assert.equal(u.searchParams.get('latitude'), '13.76'); // 約 1 km に丸める
+  assert.equal(u.searchParams.get('longitude'), '100.5');
   assert.ok(u.searchParams.get('current').includes('apparent_temperature'));
   assert.equal(u.searchParams.get('daily'), 'precipitation_probability_max');
 });
@@ -152,4 +153,15 @@ test('index.html: CSP に天気サービスだけを追加し、チェックボ�
   assert.match(html, /id="open-now-only"/);
   assert.match(html, /id="use-weather" checked/);
   assert.match(html, /Open-Meteo に送ります/); // 送信先の明示
+});
+
+test('座標は小数 2 桁(約 1 km)に丸めて送る。正確な位置は URL に出ない', async () => {
+  assert.equal(roundCoord(35.689487), 35.69);
+  assert.equal(roundCoord(-0.004), 0);
+  let seenUrl;
+  await fetchWeather({ lat: 35.689487, lng: 139.691706, fetchImpl: async (url) => { seenUrl = url; return { ok: true, json: async () => REAL }; } });
+  const u = new URL(seenUrl);
+  assert.equal(u.searchParams.get('latitude'), '35.69');
+  assert.equal(u.searchParams.get('longitude'), '139.69');
+  assert.ok(!seenUrl.includes('689487') && !seenUrl.includes('691706'));
 });
