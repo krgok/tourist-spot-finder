@@ -19,7 +19,7 @@ function showEmptyMessage(container, text) {
   container.replaceChildren(p);
 }
 
-export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited, getDirectionsUrl, lang } = {}) {
+export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited, getDirectionsUrl, lang, resolvePhoto } = {}) {
   const container = document.getElementById('results-list');
   container.replaceChildren();
 
@@ -45,6 +45,33 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
       img.alt = '';
       img.loading = 'lazy';
       img.src = photoUrl;
+    } else if (resolvePhoto && place.photos?.[0]) {
+      // サーバー経由: 写真の URL は後から取得する(画面に見えたときだけ。写真 1 枚ごとに課金されるため)
+      img = document.createElement('img');
+      img.className = 'place-photo';
+      img.alt = '';
+      img.style.visibility = 'hidden';
+      const load = () => {
+        resolvePhoto(place).then((url) => {
+          if (url) {
+            img.src = url;
+            img.style.visibility = '';
+          } else {
+            img.remove();
+          }
+        });
+      };
+      if (typeof IntersectionObserver === 'function') {
+        const observer = new IntersectionObserver((entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            observer.disconnect();
+            load();
+          }
+        });
+        observer.observe(img);
+      } else {
+        load();
+      }
     }
 
     const body = document.createElement('div');

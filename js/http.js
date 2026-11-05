@@ -80,3 +80,41 @@ export async function postGoogleApi({
     throw new Error(`${apiLabel} から想定外の応答が返りました。しばらくしてから再試行してください。`);
   }
 }
+
+// ---- サーバー側の中継(Supabase Edge Function)経由の呼び出し ----
+// キーはサーバー側にあるため、ブラウザからは Supabase のログイン(JWT)だけを送る。
+
+export function describeProxyError(status, serverMessage = '') {
+  const detail = serverMessage ? `(${serverMessage})` : '';
+  if (status === 401) return `ログインが必要です。ログインし直してください。${detail}`;
+  if (status === 403) return `このアカウントには、検索機能(サーバー経由)の利用が許可されていません。${detail}`;
+  if (status === 413 || status === 400) return `リクエストが正しくありません。${detail}`;
+  if (status === 429) return `利用上限に達したか、短時間に操作が集中しました。しばらく待ってから再試行してください。${detail}`;
+  if (status >= 500) return `サーバー側で問題が発生しました。${serverMessage || 'しばらくしてから再試行してください。'}`;
+  return serverMessage || `サーバーとの通信に失敗しました (HTTP ${status})`;
+}
+
+export async function postProxy({ url, getToken, payload, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = globalThis.fetch }) {
+  const token = await getToken?.();
+  if (!token) throw new Error('ログインが必要です。ログインしてから、もう一度お試しください。');
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    throw new Error(describeNetworkError(err));
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(describeProxyError(response.status, truncate(body?.error?.message)));
+  }
+  try {
+    return await response.json();
+  } catch {
+    throw new Error('サーバーから想定外の応答が返りました。しばらくしてから再試行してください。');
+  }
+}

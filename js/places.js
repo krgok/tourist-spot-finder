@@ -1,5 +1,6 @@
 import { PLACE_FIELD_MASK, GENRES, RANKING, REGIONS } from './config.js?v=20260708-4';
-import { postGoogleApi } from './http.js?v=20260708-4';
+import { postGoogleApi, postProxy } from './http.js?v=20260708-4';
+import { safeHttpsUrl } from './safeUrl.js?v=20260708-4';
 import { clampSearchParams } from './params.js?v=20260708-4';
 import { normalizeLanguage, normalizeRegion } from './region.js?v=20260708-4';
 import { isValidLatLng } from './validate.js?v=20260708-4';
@@ -143,6 +144,7 @@ export async function searchNearbyTouristSpots({
   language,
   region,
   openNowOnly = false,
+  proxy = null,
   fetchImpl,
 }) {
   if (!isValidLatLng(lat, lng)) {
@@ -152,21 +154,24 @@ export async function searchNearbyTouristSpots({
   const { radiusMeters, maxCount } = clampSearchParams({ radiusMeters: rawRadius, maxCount: rawMaxCount });
   const genreConfig = GENRES[genre] || GENRES.sightseeing;
 
-  const data = await postGoogleApi({
-    url: 'https://places.googleapis.com/v1/places:searchNearby',
-    apiKey,
-    fieldMask: PLACE_FIELD_MASK,
-    body: buildNearbyRequestBody({
-      lat,
-      lng,
-      radiusMeters,
-      genreConfig,
-      languageCode: normalizeLanguage(language),
-      regionCode: REGIONS[normalizeRegion(region)].regionCode,
-    }),
-    apiLabel: 'Places API (New)',
-    fetchImpl,
-  });
+  const languageCode = normalizeLanguage(language);
+  const regionCode = REGIONS[normalizeRegion(region)].regionCode;
+  // proxy があれば、キーを持たずにサーバー経由で呼ぶ(フィールド・件数はサーバー側で固定される)
+  const data = proxy
+    ? await postProxy({
+        url: proxy.url,
+        getToken: proxy.getToken,
+        payload: { op: 'searchNearby', lat, lng, radiusMeters, genreTypes: genreConfig.includedPrimaryTypes, language: languageCode, region: regionCode },
+        fetchImpl,
+      })
+    : await postGoogleApi({
+        url: 'https://places.googleapis.com/v1/places:searchNearby',
+        apiKey,
+        fieldMask: PLACE_FIELD_MASK,
+        body: buildNearbyRequestBody({ lat, lng, radiusMeters, genreConfig, languageCode, regionCode }),
+        apiLabel: 'Places API (New)',
+        fetchImpl,
+      });
   const rawPlaces = data.places || [];
 
   let genreMatched = rawPlaces.filter((p) => matchesGenre(p, genreConfig)).filter(isOperational);
@@ -184,18 +189,20 @@ export async function searchNearbyTouristSpots({
   return { places: ranked, relaxed, poolSize: rawPlaces.length, matchedSize: genreMatched.length };
 }
 
-export async function geocodeLocation({ apiKey, query, language, fetchImpl }) {
+export async function geocodeLocation({ apiKey, query, language, proxy = null, fetchImpl }) {
   const text = String(query ?? '').trim().slice(0, 200);
   if (!text) throw new Error('検索したい場所を入力してください。');
 
-  const data = await postGoogleApi({
-    url: 'https://places.googleapis.com/v1/places:searchText',
-    apiKey,
-    fieldMask: 'places.location,places.formattedAddress,places.displayName',
-    body: { textQuery: text, languageCode: normalizeLanguage(language), maxResultCount: 1 },
-    apiLabel: 'Places API (New)',
-    fetchImpl,
-  });
+  const data = proxy
+    ? await postProxy({ url: proxy.url, getToken: proxy.getToken, payload: { op: 'searchText', query: text, language: normalizeLanguage(language) }, fetchImpl })
+    : await postGoogleApi({
+        url: 'https://places.googleapis.com/v1/places:searchText',
+        apiKey,
+        fieldMask: 'places.location,places.formattedAddress,places.displayName',
+        body: { textQuery: text, languageCode: normalizeLanguage(language), maxResultCount: 1 },
+        apiLabel: 'Places API (New)',
+        fetchImpl,
+      });
 
   const place = data.places?.[0];
   const { latitude, longitude } = place?.location ?? {};
@@ -218,4 +225,20 @@ export function buildPhotoUrl(photo, apiKey, maxWidthPx = 240) {
   if (!/^places\/[\w-]+\/photos\/[\w-]+$/.test(photo.name)) return null;
   const width = Math.min(Math.max(Math.round(Number(maxWidthPx)) || 240, 1), 1600);
   return `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=${width}&key=${encodeURIComponent(apiKey)}`;
+}
+
+// サーバー経由のとき、写真の URL(キーを含まない Google の画像配信 URL)を取得する。失敗は null(写真なしで表示)。
+export async function fetchPhotoUrl({ photo, proxy, maxWidthPx = 240, fetchImpl }) {
+  if (!proxy || !photo?.name || !/^places\/[\w-]+\/photos\/[\w-]+$/.test(photo.name)) return null;
+  try {
+    const data = await postProxy({
+      url: proxy.url,
+      getToken: proxy.getToken,
+      payload: { op: 'photo', name: photo.name, maxWidthPx },
+      fetchImpl,
+    });
+    return safeHttpsUrl(data?.photoUri);
+  } catch {
+    return null;
+  }
 }

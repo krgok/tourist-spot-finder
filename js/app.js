@@ -1,7 +1,7 @@
 import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-4';
 import { initAuth } from './auth.js?v=20260708-4';
 import { getCurrentPosition } from './geolocation.js?v=20260708-4';
-import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-4';
+import { searchNearbyTouristSpots, geocodeLocation, sortPlaces, fetchPhotoUrl } from './places.js?v=20260708-4';
 import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard, prefersReducedMotion } from './ui.js?v=20260708-4';
 import { MapController } from './map.js?v=20260708-4';
 import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-4';
@@ -13,6 +13,8 @@ import { isValidLatLng } from './validate.js?v=20260708-4';
 import { addFavorite, removeFavorite, listFavorites, updateFavorite } from './favorites.js?v=20260708-4';
 import { buildFavoritePatch, filterFavorites } from './favoriteNotes.js?v=20260708-4';
 import { fetchWeather, describeWeather } from './weather.js?v=20260708-4';
+import { getAccessToken } from './supabaseClient.js?v=20260708-4';
+import { API_PROXY_URL } from './config.js?v=20260708-4';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
 import { fetchRoute } from './routes.js?v=20260708-4';
 import { formatDuration } from './format.js?v=20260708-4';
@@ -123,10 +125,27 @@ settingsDialog.addEventListener('click', (e) => {
   if (e.target === settingsDialog) settingsDialog.close();
 });
 
-function updateSearchButtonState() {
-  searchBtn.disabled = !currentSettings.apiKey;
-  settingsWarningBadge.classList.toggle('hidden', Boolean(currentSettings.apiKey));
+// Google API の呼び出し方法。サーバー側の中継が設定されていて、ログイン中なら中継を使う(キー不要)。
+// そうでなければ、利用者自身の API キーをブラウザから使う。どちらも使えなければ null。
+function getApiAccess() {
+  if (API_PROXY_URL && currentUser) {
+    return { proxy: { url: API_PROXY_URL, getToken: getAccessToken }, apiKey: currentSettings.apiKey };
+  }
+  return currentSettings.apiKey ? { apiKey: currentSettings.apiKey } : null;
 }
+
+const API_ACCESS_MESSAGE = API_PROXY_URL
+  ? 'ログインするか、「API設定」でAPIキーを設定してください。'
+  : 'APIキーを設定してください。';
+
+function updateSearchButtonState() {
+  const usable = Boolean(getApiAccess());
+  searchBtn.disabled = !usable;
+  settingsWarningBadge.classList.toggle('hidden', usable);
+}
+
+// サーバー側の中継が有効なときだけ、設定ダイアログに説明を出す
+document.getElementById('proxy-note').classList.toggle('hidden', !API_PROXY_URL);
 
 function updateGenreDescription() {
   genreDescriptionEl.textContent = GENRES[genreSelect.value]?.description || '';
@@ -459,21 +478,25 @@ async function handleRouteClick(index) {
     setStatus('search-status', '出発地が未設定です。先に検索を実行してください。', 'error');
     return;
   }
-  if (!currentSettings.apiKey) {
-    setStatus('search-status', 'APIキーを設定してください。', 'error');
+  const access = getApiAccess();
+  if (!access) {
+    setStatus('search-status', API_ACCESS_MESSAGE, 'error');
     return;
   }
   try {
     updateRouteInfo(index, '経路を取得中...');
-    const controller = await ensureMapReady();
-    if (!controller) throw new Error('地図を読み込めないため、経路を表示できません。');
+    // 地図が使えなくても、所要時間・距離は表示する(地図には描けないだけ)。
+    const controller = await ensureMapReady().catch((err) => {
+      console.error(err);
+      return null;
+    });
     const route = await fetchRoute({
-      apiKey: currentSettings.apiKey,
+      ...access,
       origin: currentPosition,
       destination: { lat: place.location.latitude, lng: place.location.longitude },
       travelMode: currentTravelMode,
     });
-    controller.renderRoute(route.encodedPolyline);
+    controller?.renderRoute(route.encodedPolyline);
 
     const durationText = formatDuration(route.durationSeconds);
     const distanceText = route.distanceMeters != null ? `${(route.distanceMeters / 1000).toFixed(1)}km` : null;
@@ -500,8 +523,11 @@ function focusOnMap(index) {
 }
 
 function rerenderResults() {
-  renderResults(currentPlaces, currentSettings.apiKey, {
+  const access = getApiAccess();
+  renderResults(currentPlaces, access?.proxy ? '' : currentSettings.apiKey, {
     lang: currentResultsLanguage,
+    // サーバー経由のときは、写真の URL をサーバーに問い合わせる(画面に見えたときだけ)
+    resolvePhoto: access?.proxy ? (place) => fetchPhotoUrl({ photo: place.photos?.[0], proxy: access.proxy }) : null,
     onCardClick: focusOnMap,
     onFavoriteToggle: handleFavoriteToggle,
     onRouteClick: handleRouteClick,
@@ -577,8 +603,9 @@ favShareBtn.addEventListener('click', () =>
 );
 
 async function runSearch(override) {
-  if (!currentSettings.apiKey) {
-    setStatus('search-status', 'APIキーを設定してください。', 'error');
+  const access = getApiAccess();
+  if (!access) {
+    setStatus('search-status', API_ACCESS_MESSAGE, 'error');
     return;
   }
 
@@ -623,7 +650,7 @@ async function runSearch(override) {
         return;
       }
       setStatus('search-status', '指定した場所を検索しています...');
-      position = await geocodeLocation({ apiKey: currentSettings.apiKey, query, language: languageSelect.value });
+      position = await geocodeLocation({ ...access, query, language: languageSelect.value });
       locationLabel = position.formattedAddress || query;
     } else {
       setStatus('search-status', '現在地を取得しています...');
@@ -644,7 +671,7 @@ async function runSearch(override) {
     // 天気は検索と並行して取得する(失敗・遅延しても検索は止めない。取得できなければ null)
     const weatherPromise = useWeatherChk.checked ? fetchWeather(position) : Promise.resolve(null);
     const { places, relaxed } = await searchNearbyTouristSpots({
-      apiKey: currentSettings.apiKey,
+      ...access,
       lat: position.lat,
       lng: position.lng,
       radiusMeters,
@@ -686,6 +713,9 @@ async function runSearch(override) {
     } catch (err) {
       console.error(err);
       mapError = '地図を読み込めませんでした(一覧は表示しています)。';
+    }
+    if (!controller && !mapError && access.proxy) {
+      mapError = '地図を表示するには「API設定」で地図用のAPIキーを設定してください(一覧は表示しています)。';
     }
     if (controller) {
       controller.clearResults();
@@ -743,7 +773,7 @@ async function runSearch(override) {
     setStatus('search-status', err.message || '検索中にエラーが発生しました。', 'error');
   } finally {
     isSearching = false;
-    searchBtn.disabled = !currentSettings.apiKey;
+    updateSearchButtonState();
     searchBtn.textContent = SEARCH_BTN_LABEL;
     resultsListEl.removeAttribute('aria-busy');
   }
@@ -753,11 +783,13 @@ async function setupAuth() {
   await initAuth({
     onLogin: async (user) => {
       currentUser = user;
+      updateSearchButtonState();
       await Promise.all([refreshFavorites(), refreshHistory()]);
       rerenderResults();
     },
     onLogout: () => {
       currentUser = null;
+      updateSearchButtonState();
       favoritesCache = [];
       renderFavorites([], {});
       renderHistory([], {});
@@ -789,7 +821,8 @@ initSettingsPanel({
   },
 });
 
-if (!currentSettings.apiKey) {
+// サーバー側の中継を使う構成では、キーが無くても使える(ログイン後)ため、最初からダイアログは開かない。
+if (!currentSettings.apiKey && !API_PROXY_URL) {
   settingsDialog.showModal();
 }
 
