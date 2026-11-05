@@ -156,6 +156,10 @@
           <option value="reviewCount">レビューが多い順</option>
         </select>
       </div>
+      <div class="results-toolbar results-actions">
+        <button id="open-route-btn" class="btn btn-small" type="button" disabled>この一覧を Google マップで順に回る</button>
+        <button id="share-route-btn" class="btn btn-small" type="button" disabled>共有</button>
+      </div>
       <h2 class="visually-hidden">検索結果</h2>
       <div id="results-list" class="results-list" aria-live="polite"></div>
     </div>
@@ -166,6 +170,10 @@
   <section id="favorites-panel" class="panel">
     <h2>お気に入り</h2>
     <p class="hint">ログインすると、複数端末で共有されるお気に入りを保存できます。</p>
+    <div class="results-toolbar results-actions">
+      <button id="fav-open-route-btn" class="btn btn-small" type="button" disabled>Google マップで順に回る</button>
+      <button id="fav-share-btn" class="btn btn-small" type="button" disabled>共有</button>
+    </div>
     <p id="favorites-status" class="status-msg" role="status"></p>
     <div id="favorites-list" class="side-list"></div>
   </section>

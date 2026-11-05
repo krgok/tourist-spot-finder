@@ -2,6 +2,7 @@ import { buildPhotoUrl } from './places.js?v=20260708-4';
 import { buildDescription } from './description.js?v=20260708-4';
 import { GENRES } from './config.js?v=20260708-4';
 import { createExternalLink } from './safeUrl.js?v=20260708-4';
+import { buildPlaceUrl } from './mapsLinks.js?v=20260708-4';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);
@@ -16,7 +17,7 @@ function showEmptyMessage(container, text) {
   container.replaceChildren(p);
 }
 
-export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited } = {}) {
+export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited, getDirectionsUrl } = {}) {
   const container = document.getElementById('results-list');
   container.replaceChildren();
 
@@ -76,6 +77,7 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     [
       createExternalLink(place.websiteUri, '公式サイト'),
       createExternalLink(place.googleMapsUri, 'Googleマップで見る'),
+      createExternalLink(getDirectionsUrl?.(place), 'マップアプリで経路を開く'),
       createExternalLink(place._wikipedia?.url, 'Wikipedia（出典）'),
     ]
       .filter(Boolean)
@@ -183,6 +185,11 @@ export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
     address.textContent = fav.address || '';
     info.appendChild(title);
     info.appendChild(address);
+    const mapLink = createExternalLink(
+      buildPlaceUrl({ lat: fav.lat, lng: fav.lng, placeId: fav.place_id, name: fav.display_name }),
+      'Googleマップで開く'
+    );
+    if (mapLink) info.appendChild(mapLink);
 
     const buttonsEl = document.createElement('div');
     buttonsEl.className = 'side-item-buttons';
