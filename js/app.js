@@ -9,6 +9,7 @@ import { LOW_ACCURACY_THRESHOLD_METERS, GENRES } from './config.js?v=20260708-4'
 import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-4';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
 import { fetchRoute } from './routes.js?v=20260708-4';
+import { formatDuration } from './format.js?v=20260708-4';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -207,15 +208,6 @@ async function handleDeleteHistory(id) {
   } catch (err) {
     console.error(err);
   }
-}
-
-function formatDuration(seconds) {
-  if (seconds == null) return null;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}分`;
-  const hours = Math.floor(minutes / 60);
-  const remainMinutes = minutes % 60;
-  return `${hours}時間${remainMinutes}分`;
 }
 
 async function handleRouteClick(index) {

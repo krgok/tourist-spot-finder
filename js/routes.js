@@ -29,7 +29,12 @@ export async function fetchRoute({ apiKey, origin, destination, travelMode = 'WA
   }
 
   const data = await response.json();
-  const route = data.routes?.[0];
+  return parseRouteResponse(data);
+}
+
+// Routes API のレスポンスを、画面で使う形に整形する(通信を含まない純粋関数)。
+export function parseRouteResponse(data) {
+  const route = data?.routes?.[0];
   if (!route?.polyline?.encodedPolyline) {
     throw new Error('経路が見つかりませんでした。');
   }
@@ -37,6 +42,6 @@ export async function fetchRoute({ apiKey, origin, destination, travelMode = 'WA
   return {
     encodedPolyline: route.polyline.encodedPolyline,
     distanceMeters: route.distanceMeters,
-    durationSeconds: route.duration ? Number(route.duration.replace('s', '')) : null,
+    durationSeconds: route.duration ? Number(String(route.duration).replace('s', '')) : null,
   };
 }

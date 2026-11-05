@@ -1,0 +1,39 @@
+name: CI
+
+# 構文確認とテストだけを行う。デプロイはしない。外部サービスの鍵は使わない。
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check (ES modules)
+        run: npm run check
+      - name: Unit tests (node --test, no dependencies)
+        run: npm test
+      - name: Static server serves index.html
+        run: |
+          python3 -m http.server 8000 >/dev/null 2>&1 &
+          sleep 2
+          curl -fsS http://localhost:8000/ | grep -q '<title>'
+          curl -fsS -o /dev/null http://localhost:8000/js/app.js
+
+  # DB の権限・RLS の検証(使い捨てのローカル PostgreSQL。本番には接続しない)
+  db-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ hashFiles('supabase/tests/local-rls-test.sh') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash supabase/tests/local-rls-test.sh

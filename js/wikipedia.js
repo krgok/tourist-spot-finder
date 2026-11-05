@@ -18,7 +18,7 @@ function normalizeForCompare(str) {
 
 // 文字ベースの簡易類似度(0〜1)。多言語表記の揺れがあっても、部分一致や
 // 文字集合の重なりである程度の判定ができるようにする厳密な形態素解析ではない。
-function nameSimilarity(a, b) {
+export function nameSimilarity(a, b) {
   const na = normalizeForCompare(a);
   const nb = normalizeForCompare(b);
   if (!na || !nb) return 0;
@@ -65,23 +65,31 @@ async function fetchExtractByTitle(lang, title) {
   };
 }
 
+// geosearchの候補から、名前と距離の両面で採用できる記事を1件選ぶ(なければnull)。
+// 名前がほぼ一致しない場合、近傍記事であっても別の建物・地物である可能性が高いため
+// 採用しない。ただし極めて近い(150m以内)場合は名前の表記揺れとみなし採用する。
+export function pickBestCandidate(candidates, name) {
+  if (!candidates?.length) return null;
+  const scored = candidates
+    .map((c) => ({ ...c, similarity: nameSimilarity(c.title, name) }))
+    .sort((a, b) => b.similarity - a.similarity || a.dist - b.dist);
+
+  const best = scored[0];
+  if (best.similarity < MIN_NAME_SIMILARITY && best.dist > STRONG_MATCH_DISTANCE_METERS) {
+    console.debug('[wikipedia] rejected geosearch candidate (low similarity):', name, '->', best.title, best.similarity, best.dist);
+    return null;
+  }
+  return best;
+}
+
 async function fetchVerifiedByLocation(lang, name, location) {
   if (!location) return null;
 
   const candidates = await geosearchWikipedia(lang, location.lat, location.lng);
   if (!candidates.length) return null;
 
-  const scored = candidates
-    .map((c) => ({ ...c, similarity: nameSimilarity(c.title, name) }))
-    .sort((a, b) => b.similarity - a.similarity || a.dist - b.dist);
-
-  const best = scored[0];
-  // 名前がほぼ一致しない場合、近傍記事であっても別の建物・地物である可能性が高いため
-  // 採用しない。ただし極めて近い(150m以内)場合は名前の表記揺れとみなし採用する。
-  if (best.similarity < MIN_NAME_SIMILARITY && best.dist > STRONG_MATCH_DISTANCE_METERS) {
-    console.debug('[wikipedia] rejected geosearch candidate (low similarity):', name, '->', best.title, best.similarity, best.dist);
-    return null;
-  }
+  const best = pickBestCandidate(candidates, name);
+  if (!best) return null;
 
   return fetchExtractByTitle(lang, best.title);
 }
