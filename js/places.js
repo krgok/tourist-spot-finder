@@ -10,7 +10,7 @@ const REQUEST_LANGUAGE_CODE = 'ja';
 // 20件取得しても追加コストはない。
 const FETCH_POOL_SIZE = 20;
 
-function matchesGenre(place, genreConfig) {
+export function matchesGenre(place, genreConfig) {
   const types = place.types || [];
   const isAllowed = genreConfig.allowedTypes.some((t) => types.includes(t));
   const isExcluded = genreConfig.excludedTypes.includes(place.primaryType);
@@ -23,7 +23,7 @@ function matchesGenre(place, genreConfig) {
 }
 
 // businessStatusが未設定の場所は情報不足なだけで閉業と決めつけず、営業中扱いにする。
-function isOperational(place) {
+export function isOperational(place) {
   const status = place.businessStatus;
   const operational = status == null || status === 'OPERATIONAL';
   if (!operational) {
@@ -92,7 +92,7 @@ function toLatLng(location) {
 // 実際に緩和後の集合を採用した場合にのみtrueにする(以前は「候補が一部除外された」
 // だけでtrueになってしまい、strict条件のまま候補が残っているケースでも
 // 「評価件数の少ないスポットを含みます」という誤った注記が出ていた)。
-function applyQualityFilter(places, genreConfig) {
+export function applyQualityFilter(places, genreConfig) {
   const minRatingCount = genreConfig.minRatingCount ?? RANKING.defaultMinRatingCount;
   const minRating = RANKING.defaultMinRating;
 

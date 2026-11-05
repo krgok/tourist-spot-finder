@@ -1,0 +1,10 @@
+{
+  "name": "tourist-spot-finder",
+  "private": true,
+  "type": "module",
+  "description": "観光地調査アプリ (ビルドなしの静的Webアプリ)。依存パッケージなし。",
+  "scripts": {
+    "test": "node --test",
+    "check": "for f in js/*.js; do node --check \"$f\" || exit 1; done"
+  }
+}
