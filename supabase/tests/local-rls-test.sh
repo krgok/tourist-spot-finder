@@ -29,7 +29,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"${RUN[@]}" "$PGBIN/initdb" -D "$WORK/data" -A trust -U postgres >/dev/null
+# 本番(Supabase)と同じ UTF-8 で作る(SQL_ASCII だと char_length がバイト数になり、日本語の長さ制約の検証が不正確になる)
+"${RUN[@]}" "$PGBIN/initdb" -D "$WORK/data" -A trust -U postgres -E UTF8 --locale=C.UTF-8 >/dev/null
 "${RUN[@]}" "$PGBIN/pg_ctl" -D "$WORK/data" -o "-c listen_addresses='' -c unix_socket_directories='$SOCK'" \
   -l "$WORK/pg.log" -w start >/dev/null
 
@@ -56,9 +57,11 @@ SQL
 echo "== schema.sql を適用 =="
 psql_ -d scratch_rls_test -f "$ROOT/supabase/schema.sql"
 echo "== マイグレーションを 2 回適用(冪等性の確認) =="
-for f in "$ROOT"/supabase/migrations/*.sql; do
-  psql_ -d scratch_rls_test -f "$f"
-  psql_ -d scratch_rls_test -f "$f"
+# 番号順にすべて適用し、さらにもう一度すべて適用する(冪等性と、後から再実行しても壊れないことの確認)
+for pass in 1 2; do
+  for f in "$ROOT"/supabase/migrations/*.sql; do
+    psql_ -d scratch_rls_test -f "$f"
+  done
 done
 
 echo "== 権限・RLS・制約のテスト =="
