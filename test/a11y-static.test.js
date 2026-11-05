@@ -36,12 +36,24 @@ test('コントラスト比(WCAG AA 4.5:1)', () => {
 });
 
 test('すべての入力・選択に、ラベルまたは aria-label がある', () => {
-  const controls = [...html.matchAll(/<(input|select)\b([^>]*)>/g)].filter((m) => !/type="radio"/.test(m[2]));
+  // ラジオ・チェックボックスは <label> で囲んでいること(下で別に検査)
+  const controls = [...html.matchAll(/<(input|select|textarea)\b([^>]*)>/g)].filter((m) => !/type="(radio|checkbox)"/.test(m[2]));
   assert.ok(controls.length >= 7);
   for (const m of controls) {
     const id = m[2].match(/\bid="([^"]+)"/)?.[1];
     const labelled = /aria-label=/.test(m[2]) || (id && new RegExp(`<label[^>]*for="${id}"`).test(html));
     assert.ok(labelled, `ラベルなし: ${m[0]}`);
+  }
+});
+
+test('チェックボックス・ラジオは <label> に囲まれている', () => {
+  const inputs = [...html.matchAll(/<input\b[^>]*type="(?:radio|checkbox)"[^>]*>/g)];
+  assert.ok(inputs.length >= 5);
+  for (const m of inputs) {
+    const before = html.slice(0, m.index);
+    const lastOpen = before.lastIndexOf('<label');
+    const lastClose = before.lastIndexOf('</label>');
+    assert.ok(lastOpen > lastClose, `label に囲まれていない: ${m[0]}`);
   }
 });
 

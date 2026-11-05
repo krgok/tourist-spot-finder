@@ -12,6 +12,7 @@ import { normalizeForUi, clampSearchParams, isOneOf } from './params.js?v=202607
 import { isValidLatLng } from './validate.js?v=20260708-4';
 import { addFavorite, removeFavorite, listFavorites, updateFavorite } from './favorites.js?v=20260708-4';
 import { buildFavoritePatch, filterFavorites } from './favoriteNotes.js?v=20260708-4';
+import { fetchWeather, describeWeather } from './weather.js?v=20260708-4';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
 import { fetchRoute } from './routes.js?v=20260708-4';
 import { formatDuration } from './format.js?v=20260708-4';
@@ -37,6 +38,7 @@ let currentSortKey = isOneOf(storedSort, SORT_OPTIONS) ? storedSort : 'recommend
 let currentTravelMode = isOneOf(storedTravelMode, TRAVEL_MODES) ? storedTravelMode : 'WALK';
 let lastSearchRadius = Number(document.getElementById('radius-select').value) || 2000;
 let isSearching = false;
+let currentWeather = null; // 直近の検索地点の天気(取得できなかった/オフのときは null)
 let currentOriginMode = 'current'; // 'current' | 'custom'(共有リンクに出発地を入れるのは custom のときだけ)
 
 const searchBtn = document.getElementById('search-btn');
@@ -167,6 +169,26 @@ languageSelect.addEventListener('change', () => {
     setStatus('search-status', `表示言語を${LANGUAGES[languageSelect.value].label}に変更しました。次の検索から反映されます。`);
   }
 });
+
+// ---- 営業中の絞り込み・天気の考慮(チェックの状態は端末に保存) ----
+const openNowChk = document.getElementById('open-now-only');
+const useWeatherChk = document.getElementById('use-weather');
+const weatherInfoEl = document.getElementById('weather-info');
+openNowChk.checked = storageGet('tourist-app.openNowOnly') === '1';
+useWeatherChk.checked = storageGet('tourist-app.useWeather') !== '0'; // 既定はオン
+openNowChk.addEventListener('change', () => storageSet('tourist-app.openNowOnly', openNowChk.checked ? '1' : '0'));
+useWeatherChk.addEventListener('change', () => {
+  storageSet('tourist-app.useWeather', useWeatherChk.checked ? '1' : '0');
+  if (!useWeatherChk.checked) {
+    currentWeather = null;
+    updateWeatherInfo();
+    if (currentPlaces.length) applySortAndRerender();
+  }
+});
+
+function updateWeatherInfo() {
+  weatherInfoEl.textContent = currentWeather ? describeWeather(currentWeather, { applied: currentSortKey === 'recommended' }) : '';
+}
 
 const savedOriginSelect = document.getElementById('saved-origin-select');
 function updateLocationInputs() {
@@ -370,7 +392,11 @@ function handleHistoryRerun(entry) {
 
 function applySortAndRerender() {
   if (!currentPlaces.length) return;
-  currentPlaces = sortPlaces(currentPlaces, currentSortKey, currentPosition, lastSearchRadius);
+  currentPlaces = sortPlaces(currentPlaces, currentSortKey, currentPosition, lastSearchRadius, {
+    weather: currentWeather,
+    genreConfig: GENRES[currentGenre],
+  });
+  updateWeatherInfo();
   rerenderResults();
   if (mapController) {
     mapController.clearMarkers();
@@ -615,6 +641,8 @@ async function runSearch(override) {
     const isLowAccuracy = position.accuracy != null && position.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
 
     setStatus('search-status', '周辺のスポットを検索しています...');
+    // 天気は検索と並行して取得する(失敗・遅延しても検索は止めない。取得できなければ null)
+    const weatherPromise = useWeatherChk.checked ? fetchWeather(position) : Promise.resolve(null);
     const { places, relaxed } = await searchNearbyTouristSpots({
       apiKey: currentSettings.apiKey,
       lat: position.lat,
@@ -624,6 +652,7 @@ async function runSearch(override) {
       genre,
       language: languageSelect.value,
       region: regionSelect.value,
+      openNowOnly: openNowChk.checked,
     });
     currentResultsLanguage = normalizeLanguage(languageSelect.value);
 
@@ -639,7 +668,15 @@ async function runSearch(override) {
       )
     );
     const enrichedPlaces = places.map((place, index) => ({ ...place, _wikipedia: wikipediaResults[index] }));
-    currentPlaces = sortPlaces(enrichedPlaces, currentSortKey, position, radiusMeters);
+    currentWeather = await weatherPromise;
+    currentPlaces = sortPlaces(enrichedPlaces, currentSortKey, position, radiusMeters, {
+      weather: currentWeather,
+      genreConfig: GENRES[genre],
+    });
+    updateWeatherInfo();
+    if (useWeatherChk.checked && !currentWeather) {
+      weatherInfoEl.textContent = '天気を取得できませんでした(検索結果には影響しません)。';
+    }
 
     // 地図の読み込みに失敗しても、検索結果の一覧は表示する。
     let controller = null;

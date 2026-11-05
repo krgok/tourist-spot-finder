@@ -4,6 +4,7 @@ import { GENRES } from './config.js?v=20260708-4';
 import { createExternalLink } from './safeUrl.js?v=20260708-4';
 import { buildPlaceUrl } from './mapsLinks.js?v=20260708-4';
 import { STATUS_LABELS, NOTE_MAX, favoriteStatus, todayLocalISO } from './favoriteNotes.js?v=20260708-4';
+import { openStatus, OPEN_STATE_LABELS } from './openingHours.js?v=20260708-4';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);
@@ -60,6 +61,13 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     ratingEl.className = 'place-rating';
     if (place.rating) {
       ratingEl.textContent = `★ ${place.rating} (${place.userRatingCount || 0}件)`;
+    }
+    const open = openStatus(place);
+    if (open.state !== 'unknown') {
+      const badge = document.createElement('span');
+      badge.className = `open-badge ${open.state}`;
+      badge.textContent = OPEN_STATE_LABELS[open.state] + (open.detail ? `(${open.detail})` : '');
+      ratingEl.appendChild(badge);
     }
     if (place.primaryTypeDisplayName?.text) {
       const typeBadge = document.createElement('span');
