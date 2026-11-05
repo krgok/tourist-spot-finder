@@ -38,13 +38,13 @@ body {
 .auth-area { display: flex; align-items: center; gap: 12px; }
 
 .btn-icon {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.22); /* 白文字とのコントラスト比 4.5:1 以上 */
   color: #fff;
   display: inline-flex;
   align-items: center;
 }
 
-.btn-icon:hover { background: rgba(255, 255, 255, 0.25); }
+.btn-icon:hover { background: rgba(0, 0, 0, 0.32); }
 
 .settings-warning-badge {
   display: inline-flex;
@@ -146,7 +146,8 @@ body {
 
 .location-mode-toggle { flex-wrap: wrap; }
 
-.form-row label {
+.form-row label,
+.form-row .field-label {
   font-size: 13px;
   font-weight: 600;
 }
@@ -319,7 +320,7 @@ body {
   flex-shrink: 0;
 }
 
-.place-rating { font-size: 13px; color: #f9ab00; display: flex; align-items: center; gap: 8px; }
+.place-rating { font-size: 13px; color: #8a5300; /* 白背景でコントラスト比 4.5:1 以上 */ display: flex; align-items: center; gap: 8px; }
 .place-type-badge {
   font-size: 11px;
   color: var(--text-secondary);
@@ -401,3 +402,69 @@ body {
 .key-safety summary { cursor: pointer; font-weight: 600; }
 .key-safety ul { margin: 6px 0 0; padding-left: 20px; }
 .key-safety code { word-break: break-all; }
+
+/* ---- アクセシビリティ・使いやすさ(2026-11 点検) ---- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+:focus-visible { outline: 3px solid #1a73e8; outline-offset: 2px; }
+.app-header :focus-visible, .back-to-map-btn:focus-visible { outline-color: #fff; }
+.btn-primary:focus-visible { outline-color: #0d47a1; }
+
+.place-card:focus-within { border-color: var(--primary); }
+
+.map-container:empty::before {
+  content: "検索すると、ここに地図が表示されます。";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.offline-banner {
+  margin: 0;
+  padding: 8px 16px;
+  background: #fef7e0;
+  border-bottom: 1px solid #f0d58c;
+  color: #5f3b00;
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .app-header { flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
+  .app-header h1 { font-size: 17px; flex: 1 1 100%; }
+  .auth-area { flex-wrap: wrap; gap: 8px; width: 100%; }
+  .auth-area .btn { white-space: nowrap; }
+  .user-info { flex-wrap: wrap; }
+  .app-main { padding: 12px; gap: 12px; }
+  .panel { padding: 12px; }
+  /* 指で押しやすい大きさ(目安 44px) */
+  .btn, .btn-small { min-height: 40px; }
+  .form-row select, .form-row input[type="text"], .form-row input[type="password"] { min-height: 40px; font-size: 16px; } /* iOS の自動ズーム防止 */
+  .location-mode-toggle label { min-height: 32px; }
+  .place-card { flex-direction: column; }
+  .place-card .place-photo { width: 100%; height: 140px; }
+  .place-actions .btn-small { flex: 1 1 auto; }
+  .side-item { flex-direction: column; align-items: stretch; }
+  .side-item-buttons { flex-direction: row; flex-wrap: wrap; }
+}
+
+/* スマホ/タブレットでは一覧を入れ子スクロールにしない(ページ全体でスクロール) */
+@media (max-width: 860px) {
+  .results-list { max-height: none; overflow-y: visible; padding-right: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
