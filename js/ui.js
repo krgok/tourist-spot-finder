@@ -34,14 +34,14 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     const description = buildDescription(place);
     const name = place.displayName?.text || '名称不明';
 
-    const img = document.createElement('img');
-    img.className = 'place-photo';
-    img.alt = name;
-    img.loading = 'lazy';
+    // 写真がない場所では、空の枠を出さない(スマホで横幅を無駄にしないため)。
+    let img = null;
     if (photoUrl) {
+      img = document.createElement('img');
+      img.className = 'place-photo';
+      img.alt = '';
+      img.loading = 'lazy';
       img.src = photoUrl;
-    } else {
-      img.style.visibility = 'hidden';
     }
 
     const body = document.createElement('div');
@@ -84,11 +84,25 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     const actionsEl = document.createElement('div');
     actionsEl.className = 'place-actions';
 
+    // カード全体のクリックはマウス向け。キーボード・スクリーンリーダー向けに、同じ操作のボタンも置く。
+    const mapBtn = document.createElement('button');
+    mapBtn.className = 'btn btn-small';
+    mapBtn.type = 'button';
+    mapBtn.textContent = '地図で見る';
+    mapBtn.setAttribute('aria-label', `${name}を地図で見る`);
+    mapBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onCardClick?.(index);
+    });
+    actionsEl.appendChild(mapBtn);
+
     const favoriteBtn = document.createElement('button');
     favoriteBtn.className = 'btn btn-small';
     favoriteBtn.type = 'button';
     const favorited = isFavorited?.(place.id);
     favoriteBtn.textContent = favorited ? '★ お気に入り済み' : '☆ お気に入りに追加';
+    favoriteBtn.setAttribute('aria-pressed', favorited ? 'true' : 'false');
+    favoriteBtn.setAttribute('aria-label', `${name}を${favorited ? 'お気に入りから外す' : 'お気に入りに追加'}`);
     favoriteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       onFavoriteToggle?.(index);
@@ -99,6 +113,7 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     routeBtn.className = 'btn btn-small';
     routeBtn.type = 'button';
     routeBtn.textContent = '経路を表示';
+    routeBtn.setAttribute('aria-label', `${name}への経路を表示`);
     routeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       onRouteClick?.(index);
@@ -107,6 +122,7 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
 
     const routeInfoEl = document.createElement('span');
     routeInfoEl.className = 'route-info';
+    routeInfoEl.setAttribute('role', 'status');
     actionsEl.appendChild(routeInfoEl);
 
     body.appendChild(heading);
@@ -115,7 +131,7 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     body.appendChild(linksEl);
     body.appendChild(actionsEl);
 
-    card.appendChild(img);
+    if (img) card.appendChild(img);
     card.appendChild(body);
 
     card.addEventListener('click', (e) => {
@@ -127,6 +143,10 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
   });
 }
 
+export function prefersReducedMotion() {
+  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
+
 export function updateRouteInfo(index, text) {
   const card = document.querySelector(`.place-card[data-index="${index}"]`);
   const el = card?.querySelector('.route-info');
@@ -136,7 +156,7 @@ export function updateRouteInfo(index, text) {
 export function scrollToCard(index) {
   const card = document.querySelector(`.place-card[data-index="${index}"]`);
   if (!card) return;
-  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  card.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   card.classList.add('place-card-highlight');
   setTimeout(() => card.classList.remove('place-card-highlight'), 1500);
 }

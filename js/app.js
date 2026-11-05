@@ -2,7 +2,7 @@ import { initSettingsPanel, loadSettings } from './settings.js?v=20260708-4';
 import { initAuth } from './auth.js?v=20260708-4';
 import { getCurrentPosition } from './geolocation.js?v=20260708-4';
 import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.js?v=20260708-4';
-import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard } from './ui.js?v=20260708-4';
+import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard, prefersReducedMotion } from './ui.js?v=20260708-4';
 import { MapController } from './map.js?v=20260708-4';
 import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-4';
 import { LOW_ACCURACY_THRESHOLD_METERS, GENRES, SORT_OPTIONS, TRAVEL_MODES } from './config.js?v=20260708-4';
@@ -44,13 +44,40 @@ const sortSelect = document.getElementById('sort-select');
 const travelModeSelect = document.getElementById('travel-mode-select');
 const backToMapBtn = document.getElementById('back-to-map-btn');
 const mapEl = document.getElementById('map');
+const resultsListEl = document.getElementById('results-list');
+const SEARCH_BTN_LABEL = searchBtn.textContent;
 
 sortSelect.value = currentSortKey;
 travelModeSelect.value = currentTravelMode;
 
 backToMapBtn.addEventListener('click', () => {
-  mapEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  mapEl.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
 });
+
+// ---- オフライン表示 ----
+const offlineBanner = document.getElementById('offline-banner');
+function updateOnlineState() {
+  offlineBanner.classList.toggle('hidden', navigator.onLine !== false);
+}
+window.addEventListener('online', updateOnlineState);
+window.addEventListener('offline', updateOnlineState);
+updateOnlineState();
+
+// ---- 位置情報の許可状態(ブロック済みなら、検索前に案内する) ----
+const locationHintEl = document.getElementById('location-hint');
+const LOCATION_HINT_DEFAULT = locationHintEl.textContent;
+const LOCATION_HINT_DENIED =
+  '位置情報がブロックされています。アドレスバー付近の鍵(設定)アイコンから「位置情報」を許可するか、「場所を指定」で地名を入力してください。';
+navigator.permissions
+  ?.query({ name: 'geolocation' })
+  .then((status) => {
+    const update = () => {
+      locationHintEl.textContent = status.state === 'denied' ? LOCATION_HINT_DENIED : LOCATION_HINT_DEFAULT;
+    };
+    update();
+    status.addEventListener('change', update);
+  })
+  .catch(() => {});
 
 // スマホでは地図と結果一覧が縦積みになるため、地図が画面外に出たら
 // 「地図に戻る」ボタンを表示する(狭い画面かどうかはCSS側のメディアクエリでも制御)。
@@ -288,9 +315,22 @@ async function handleRouteClick(index) {
   }
 }
 
+// 一覧から地図の該当スポットへ(カードのクリックと「地図で見る」ボタンの共通処理)。
+function focusOnMap(index) {
+  if (!mapController) {
+    setStatus('search-status', '地図を利用できません(APIキーの設定や通信状況を確認してください)。', 'error');
+    return;
+  }
+  mapController.focusPlace(index, currentPlaces[index]);
+  // スマホでは地図が画面外にあるため、見える位置まで戻す。
+  if (!backToMapBtn.classList.contains('hidden')) {
+    mapEl.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
+}
+
 function rerenderResults() {
   renderResults(currentPlaces, currentSettings.apiKey, {
-    onCardClick: (index) => mapController?.focusPlace(index, currentPlaces[index]),
+    onCardClick: focusOnMap,
     onFavoriteToggle: handleFavoriteToggle,
     onRouteClick: handleRouteClick,
     isFavorited,
@@ -320,6 +360,8 @@ async function runSearch(override) {
   const locationMode = getLocationMode();
 
   searchBtn.disabled = true;
+  searchBtn.textContent = '検索中…';
+  resultsListEl.setAttribute('aria-busy', 'true');
 
   try {
     let position;
@@ -435,6 +477,8 @@ async function runSearch(override) {
   } finally {
     isSearching = false;
     searchBtn.disabled = !currentSettings.apiKey;
+    searchBtn.textContent = SEARCH_BTN_LABEL;
+    resultsListEl.removeAttribute('aria-busy');
   }
 }
 
