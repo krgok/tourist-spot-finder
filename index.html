@@ -132,8 +132,21 @@
         <div class="location-mode-toggle">
           <label><input type="radio" name="location-mode" value="current" checked> 現在地</label>
           <label><input type="radio" name="location-mode" value="custom"> 場所を指定</label>
+          <label><input type="radio" name="location-mode" value="saved"> 保存した起点</label>
+          <select id="saved-origin-select" class="hidden" aria-label="保存した起点"></select>
           <input type="text" id="location-query-input" class="hidden" placeholder="例: 東京駅、渋谷区、大阪城 など" aria-label="検索したい場所の名前" maxlength="200" autocomplete="off">
         </div>
+        <details id="origins-manager" class="origins-manager">
+          <summary>よく使う起点(ホテル・自宅など)を保存・管理</summary>
+          <p class="hint">この端末の中だけに保存され、アカウントやサーバーには送られません。自宅の位置になりうるため、共有の端末では保存しないでください。</p>
+          <div class="origin-add">
+            <label for="origin-name-input" class="visually-hidden">起点の名前</label>
+            <input type="text" id="origin-name-input" maxlength="40" placeholder="名前(例: ホテル)" autocomplete="off">
+            <button id="save-origin-btn" type="button" class="btn btn-small" disabled>最後に検索した地点を保存</button>
+          </div>
+          <p id="origins-status" class="status-msg" role="status"></p>
+          <ul id="origins-list" class="origins-list"></ul>
+        </details>
         <p id="location-hint" class="hint">「現在地」を使うには、ブラウザの位置情報の許可が必要です。許可したくない場合や取得できない場合は「場所を指定」で地名を入力してください。</p>
       </div>
       <div class="form-row form-row-wide">
