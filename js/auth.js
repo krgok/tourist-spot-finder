@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient.js?v=20260708-4';
+import { safeHttpsUrl } from './safeUrl.js?v=20260708-4';
 
 export async function initAuth({ onLogin, onLogout }) {
   const signinContainer = document.getElementById('g_id_signin_container');
@@ -17,7 +18,15 @@ export async function initAuth({ onLogin, onLogout }) {
     signinContainer.classList.add('hidden');
     userInfoEl.classList.remove('hidden');
     userNameEl.textContent = user.user_metadata?.full_name || user.email || '';
-    userAvatarEl.src = user.user_metadata?.avatar_url || '';
+    // アバターURLは外部(Googleアカウント)由来なので https のみ許可する。
+    const avatarUrl = safeHttpsUrl(user.user_metadata?.avatar_url);
+    if (avatarUrl) {
+      userAvatarEl.src = avatarUrl;
+      userAvatarEl.classList.remove('hidden');
+    } else {
+      userAvatarEl.removeAttribute('src');
+      userAvatarEl.classList.add('hidden');
+    }
   }
 
   function renderSignedOut() {

@@ -3,6 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  Content-Security-Policy(GitHub Pages など、HTTPヘッダーを設定できない配信向けに meta で指定)。
+  XSS が起きても、Google API キー(localStorage)や Supabase セッションを外部に送れないようにするのが目的。
+  - connect-src の Supabase は、このアプリのプロジェクトのホストだけを許可(js/config.js の SUPABASE_URL と揃える。test で検査)
+  - Google マップ(Maps JavaScript API)が必要とするホストは Google の公式ドキュメントに沿って許可
+  - 'unsafe-inline' は style のみ(Google マップが動的にスタイルを挿入するため)。script には使わない
+  frame-ancestors / report-uri は meta では無効なので指定していない。
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://esm.sh https://maps.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com blob:;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com;
+  font-src https://fonts.gstatic.com;
+  connect-src 'self' https://qosrxcrbjlvrbuyybqhr.supabase.co https://places.googleapis.com https://routes.googleapis.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.wikipedia.org https://esm.sh data: blob:;
+  frame-src https://*.google.com;
+  worker-src blob:;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self'">
 <title>周辺スポット検索アプリ</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -17,7 +37,7 @@
       <button id="login-btn" class="btn btn-secondary">Googleでログイン</button>
     </div>
     <div id="user-info" class="user-info hidden">
-      <img id="user-avatar" class="user-avatar" alt="avatar">
+      <img id="user-avatar" class="user-avatar hidden" alt="" referrerpolicy="no-referrer">
       <span id="user-name"></span>
       <button id="logout-btn" class="btn btn-secondary">ログアウト</button>
     </div>
@@ -32,13 +52,27 @@
   <p class="hint">
     観光・食事・子供向け・お茶・仕事など、ジャンル別のスポット情報・地図・経路表示には
     Google Maps / Places API / Routes API のAPIキーが必要です。
-    ご自身の Google Cloud Console で「Maps JavaScript API」「Places API (New)」「Routes API」を有効化したAPIキーを取得し、以下に入力してください（ブラウザの localStorage にのみ保存されます）。
+    ご自身の Google Cloud Console で「Maps JavaScript API」「Places API (New)」「Routes API」を有効化したAPIキーを取得し、以下に入力してください。
     ログインはアプリ運営者が用意したGoogleログイン(Supabase Auth)を利用するため、キーの入力は不要です。
   </p>
+  <details class="key-safety" open>
+    <summary>APIキーの安全な使い方(必ずお読みください)</summary>
+    <ul>
+      <li>キーは<strong>このブラウザの localStorage に平文で保存</strong>され、Googleへの通信(画像のURLを含む)にそのまま使われます。他人が使う端末・共有のパソコンでは入力せず、使い終わったら「削除」してください。</li>
+      <li>万一このページに悪意あるスクリプトが入り込むと、キーを盗まれるおそれがあります。<strong>盗まれても被害が出ないよう、Google Cloud Console の「認証情報」でキーに制限をかけてください。</strong>
+        <ul>
+          <li>アプリケーションの制限:<strong>「ウェブサイト(HTTPリファラー)」</strong>に、このアプリのURL(例: <code>https://ユーザー名.github.io/*</code>)だけを登録</li>
+          <li>API の制限:<strong>Maps JavaScript API・Places API (New)・Routes API の3つだけ</strong>を選択</li>
+          <li>Google Cloud の「割り当て(クォータ)」で1日の上限を小さく設定し、「予算とアラート」で請求額の通知を設定</li>
+        </ul>
+      </li>
+      <li>このキーを他の用途・他のアプリと共用しないでください(このアプリ専用のキーを作成)。</li>
+    </ul>
+  </details>
   <div class="form-row">
     <label for="api-key-input">Google Maps APIキー</label>
     <div class="input-with-toggle">
-      <input type="password" id="api-key-input" placeholder="AIza...">
+      <input type="password" id="api-key-input" placeholder="AIza..." autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="128">
       <button type="button" id="toggle-api-key" class="btn btn-small">表示</button>
     </div>
   </div>

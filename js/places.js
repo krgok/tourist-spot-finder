@@ -197,7 +197,11 @@ export async function geocodeLocation({ apiKey, query }) {
   };
 }
 
+// 写真の URL(キーを含む)。photo.name は Places API が返す "places/<id>/photos/<id>" 形式だけ許可し、
+// キーは URL 用にエンコードする(キー自体は設定画面で形式を検査済み)。
 export function buildPhotoUrl(photo, apiKey, maxWidthPx = 240) {
-  if (!photo?.name) return null;
-  return `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=${maxWidthPx}&key=${apiKey}`;
+  if (!photo?.name || !apiKey) return null;
+  if (!/^places\/[\w-]+\/photos\/[\w-]+$/.test(photo.name)) return null;
+  const width = Math.min(Math.max(Math.round(Number(maxWidthPx)) || 240, 1), 1600);
+  return `https://places.googleapis.com/v1/${photo.name}/media?maxWidthPx=${width}&key=${encodeURIComponent(apiKey)}`;
 }

@@ -164,7 +164,10 @@ export class MapController {
     const marker = this.markers[index];
     if (!marker) return;
     this.map.panTo(marker.position);
-    this.infoWindow.setContent(`<strong>${place.displayName?.text || ''}</strong>`);
+    // 施設名は外部由来の文字列なので、HTML文字列ではなく DOM(textContent)で渡す。
+    const content = document.createElement('strong');
+    content.textContent = place.displayName?.text || '';
+    this.infoWindow.setContent(content);
     this.infoWindow.open({ map: this.map, anchor: marker });
   }
 }

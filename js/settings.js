@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from './config.js?v=20260708-4';
+import { checkApiKeyFormat } from './validate.js?v=20260708-4';
 
 export function loadSettings() {
   return {
@@ -31,11 +32,16 @@ export function initSettingsPanel({ onSaved, onCleared }) {
   });
 
   saveBtn.addEventListener('click', () => {
-    const apiKey = apiKeyInput.value.trim();
-    saveSettings({ apiKey });
-    statusEl.textContent = '設定を保存しました。';
-    statusEl.className = 'status-msg success';
-    onSaved({ apiKey });
+    const check = checkApiKeyFormat(apiKeyInput.value);
+    if (!check.ok) {
+      statusEl.textContent = check.message;
+      statusEl.className = 'status-msg error';
+      return;
+    }
+    saveSettings({ apiKey: check.key });
+    statusEl.textContent = check.level === 'warning' ? `保存しました。${check.message}` : '設定を保存しました。';
+    statusEl.className = check.level === 'warning' ? 'status-msg' : 'status-msg success';
+    onSaved({ apiKey: check.key });
   });
 
   clearBtn.addEventListener('click', () => {
