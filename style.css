@@ -405,6 +405,14 @@ body {
 
 .results-actions { flex-wrap: wrap; }
 
+.origins-manager { font-size: 13px; margin-top: 4px; }
+.origins-manager summary { cursor: pointer; color: var(--primary-dark); }
+.origin-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.origin-add input { flex: 1 1 160px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 14px; }
+.origins-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.origins-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius); }
+.origins-list .origin-name { overflow-wrap: anywhere; }
+
 /* ---- アクセシビリティ・使いやすさ(2026-11 点検) ---- */
 .visually-hidden {
   position: absolute !important;

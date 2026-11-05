@@ -15,6 +15,7 @@ import { fetchRoute } from './routes.js?v=20260708-4';
 import { formatDuration } from './format.js?v=20260708-4';
 import { buildDirectionsUrl, buildShareText, MAX_STOPS } from './mapsLinks.js?v=20260708-4';
 import { shareOrCopy } from './share.js?v=20260708-4';
+import { parseStoredOrigins, serializeOrigins, addOrigin, removeOrigin, ORIGINS_STORAGE_KEY } from './origins.js?v=20260708-4';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -125,11 +126,86 @@ function updateGenreDescription() {
 genreSelect.addEventListener('change', updateGenreDescription);
 updateGenreDescription();
 
-locationModeRadios.forEach((radio) => {
-  radio.addEventListener('change', () => {
-    locationQueryInput.classList.toggle('hidden', radio.value !== 'custom' || !radio.checked);
+const savedOriginSelect = document.getElementById('saved-origin-select');
+function updateLocationInputs() {
+  const mode = getLocationMode();
+  locationQueryInput.classList.toggle('hidden', mode !== 'custom');
+  savedOriginSelect.classList.toggle('hidden', mode !== 'saved');
+}
+locationModeRadios.forEach((radio) => radio.addEventListener('change', updateLocationInputs));
+
+// ---- よく使う起点(この端末の localStorage のみ) ----
+let savedOrigins = parseStoredOrigins(storageGet(ORIGINS_STORAGE_KEY));
+let lastSearchedPoint = null; // { lat, lng, label }: 「最後に検索した地点を保存」の対象
+const originNameInput = document.getElementById('origin-name-input');
+const saveOriginBtn = document.getElementById('save-origin-btn');
+const originsListEl = document.getElementById('origins-list');
+
+function persistOrigins() {
+  const ok = storageSet(ORIGINS_STORAGE_KEY, serializeOrigins(savedOrigins));
+  if (!ok) {
+    setStatus('origins-status', 'このブラウザでは端末に保存できません(プライベートブラウズ等)。このタブを閉じると消えます。', 'error');
+  }
+  return ok;
+}
+
+function renderOrigins() {
+  // 選択肢(保存した起点)
+  const previous = savedOriginSelect.value;
+  savedOriginSelect.replaceChildren();
+  if (!savedOrigins.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '保存した起点がありません';
+    savedOriginSelect.appendChild(opt);
+  }
+  savedOrigins.forEach((o) => {
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = o.name;
+    savedOriginSelect.appendChild(opt);
   });
+  if (savedOrigins.some((o) => o.id === previous)) savedOriginSelect.value = previous;
+
+  // 管理リスト
+  originsListEl.replaceChildren();
+  savedOrigins.forEach((o) => {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.className = 'origin-name';
+    name.textContent = o.name;
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn btn-small';
+    del.textContent = '削除';
+    del.setAttribute('aria-label', `${o.name}を削除`);
+    del.addEventListener('click', () => {
+      savedOrigins = removeOrigin(savedOrigins, o.id);
+      persistOrigins();
+      renderOrigins();
+      setStatus('origins-status', `「${o.name}」を削除しました。`);
+    });
+    li.append(name, del);
+    originsListEl.appendChild(li);
+  });
+  saveOriginBtn.disabled = !lastSearchedPoint;
+}
+
+saveOriginBtn.addEventListener('click', () => {
+  if (!lastSearchedPoint) return;
+  const fallbackName = lastSearchedPoint.label && lastSearchedPoint.label !== '現在地' ? lastSearchedPoint.label : '';
+  const result = addOrigin(savedOrigins, {
+    name: originNameInput.value || fallbackName,
+    lat: lastSearchedPoint.lat,
+    lng: lastSearchedPoint.lng,
+  });
+  if (!result.ok) return setStatus('origins-status', result.error, 'error');
+  savedOrigins = result.list;
+  originNameInput.value = '';
+  if (persistOrigins()) setStatus('origins-status', '起点を保存しました。「保存した起点」から選べます。', 'success');
+  renderOrigins();
 });
+renderOrigins();
 
 function getLocationMode() {
   return document.querySelector('input[name="location-mode"]:checked')?.value || 'current';
@@ -199,7 +275,7 @@ async function refreshHistory() {
 
 function applyPositionOverride(label) {
   document.querySelector('input[name="location-mode"][value="custom"]').checked = true;
-  locationQueryInput.classList.remove('hidden');
+  updateLocationInputs();
   locationQueryInput.value = label;
 }
 
@@ -441,6 +517,14 @@ async function runSearch(override) {
     if (override) {
       position = { lat: override.lat, lng: override.lng };
       locationLabel = override.label;
+    } else if (locationMode === 'saved') {
+      const origin = savedOrigins.find((o) => o.id === savedOriginSelect.value);
+      if (!origin) {
+        setStatus('search-status', '保存した起点を選んでください(「よく使う起点を保存・管理」から追加できます)。', 'error');
+        return;
+      }
+      position = { lat: origin.lat, lng: origin.lng };
+      locationLabel = origin.name;
     } else if (locationMode === 'custom') {
       const query = locationQueryInput.value.trim();
       if (!query) {
@@ -459,7 +543,9 @@ async function runSearch(override) {
       throw new Error('検索地点の位置情報が正しくありません。場所を指定し直してください。');
     }
     currentPosition = position;
-    currentOriginMode = override || locationMode === 'custom' ? 'custom' : 'current';
+    currentOriginMode = override || locationMode !== 'current' ? 'custom' : 'current';
+    lastSearchedPoint = { lat: position.lat, lng: position.lng, label: locationLabel };
+    renderOrigins();
     lastSearchRadius = radiusMeters;
     const isLowAccuracy = position.accuracy != null && position.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
 
