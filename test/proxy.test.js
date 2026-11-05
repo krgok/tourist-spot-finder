@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { handleRequest, createRateLimiter, buildUpstream, PLACE_FIELD_MASK as SERVER_MASK } from '../supabase/functions/places-proxy/handler.js';
+import { handleRequest, createRateLimiter, DEFAULT_RATE_LIMIT_PER_MIN, buildUpstream, PLACE_FIELD_MASK as SERVER_MASK } from '../supabase/functions/places-proxy/handler.js';
 import { PLACE_FIELD_MASK as CLIENT_MASK, API_PROXY_URL, SUPABASE_URL, GENRES } from '../js/config.js';
 import { postProxy, describeProxyError } from '../js/http.js';
 import { searchNearbyTouristSpots, geocodeLocation, fetchPhotoUrl } from '../js/places.js';
@@ -9,8 +9,8 @@ import { fetchRoute } from '../js/routes.js';
 
 const SERVER_KEY = ['AI', 'zaSERVERKEY_0123456789_abcdefghijklmnop'].join('');
 const ORIGIN = 'https://family.example.github.io';
-const ENV = { GOOGLE_MAPS_SERVER_KEY: SERVER_KEY, ALLOWED_ORIGIN: ORIGIN };
 const USER = { id: '00000000-0000-0000-0000-00000000000a' };
+const ENV = { GOOGLE_MAPS_SERVER_KEY: SERVER_KEY, ALLOWED_ORIGIN: ORIGIN, ALLOWED_USER_IDS: USER.id };
 const getUser = async (jwt) => (jwt === 'good' ? USER : null);
 
 function req(body, { method = 'POST', origin = ORIGIN, auth = 'Bearer good' } = {}) {
@@ -59,11 +59,33 @@ test('配信元: 許可していない origin・origin なしは 403。OPTIONS �
 });
 
 test('ALLOWED_ORIGIN が未設定なら、すべて拒否(500)', async () => {
-  const res = await handleRequest(req(NEARBY), { env: { GOOGLE_MAPS_SERVER_KEY: SERVER_KEY }, getUser });
+  const res = await handleRequest(req(NEARBY), { env: { GOOGLE_MAPS_SERVER_KEY: SERVER_KEY, ALLOWED_USER_IDS: USER.id }, getUser });
   assert.equal(res.status, 500);
 });
 
-test('ALLOWED_USER_IDS を設定すると、許可した利用者(家族)以外は 403', async () => {
+test('ALLOWED_USER_IDS が未設定・空なら、すべて拒否(500)。Google は呼ばれず、応答に設定名・キーを出さない', async () => {
+  const f = fakeFetch(() => ok({ places: [] }));
+  for (const ids of [undefined, '', '  ', ' , ,']) {
+    const env = { GOOGLE_MAPS_SERVER_KEY: SERVER_KEY, ALLOWED_ORIGIN: ORIGIN, ALLOWED_USER_IDS: ids };
+    const res = await handleRequest(req(NEARBY), { env, getUser, fetchImpl: f, rateLimiter: createRateLimiter({ limit: 1000 }) });
+    assert.equal(res.status, 500);
+    const text = await res.text();
+    assert.equal(JSON.parse(text).error.code, 'NOT_CONFIGURED');
+    assert.ok(!text.includes(SERVER_KEY));
+  }
+  assert.equal(f.calls.length, 0);
+});
+
+test('レート制限の既定は 1 分 120 回(検索 1 + 写真最大 20 を含む検索を数回できる)', async () => {
+  assert.equal(DEFAULT_RATE_LIMIT_PER_MIN, 120);
+  const f = fakeFetch(() => ok({ places: [] }));
+  // rateLimiter を渡さず、既定のリミッターを使う(RATE_LIMIT_PER_MIN は未設定)。他のテストと混ざらないよう専用の利用者 ID を使う
+  const run = () => handleRequest(req(NEARBY), { env: { ...ENV, ALLOWED_USER_IDS: 'rate-default-user' }, getUser: async () => ({ id: 'rate-default-user' }), fetchImpl: f });
+  for (let i = 0; i < 120; i += 1) assert.equal((await run()).status, 200, `${i + 1} 回目`);
+  assert.equal((await run()).status, 429);
+});
+
+test('ALLOWED_USER_IDS: 載っている利用者は通り、載っていない利用者は 403', async () => {
   const f = fakeFetch(() => ok({ places: [] }));
   const env = { ...ENV, ALLOWED_USER_IDS: 'aaaaaaaa-0000-0000-0000-000000000001, 00000000-0000-0000-0000-00000000000a' };
   assert.equal((await call(NEARBY, {}, { env, fetchImpl: f })).status, 200);
@@ -76,7 +98,7 @@ test('レート制限: 1 人あたりの上限を超えると 429(他の利用�
   const f = fakeFetch(() => ok({ places: [] }));
   let t = 0;
   const rateLimiter = createRateLimiter({ limit: 2, windowMs: 60000, now: () => t });
-  const run = (u) => handleRequest(req(NEARBY), { env: ENV, getUser: async () => ({ id: u }), fetchImpl: f, rateLimiter });
+  const run = (u) => handleRequest(req(NEARBY), { env: { ...ENV, ALLOWED_USER_IDS: 'u1,u2' }, getUser: async () => ({ id: u }), fetchImpl: f, rateLimiter });
   assert.equal((await run('u1')).status, 200);
   assert.equal((await run('u1')).status, 200);
   assert.equal((await run('u1')).status, 429);
@@ -182,7 +204,7 @@ test('Google のエラーの扱い: 400・429 は利用者に分かる形、401/
 });
 
 test('サーバーのキーが未設定なら 500。キーは応答に含まれない', async () => {
-  const res = await handleRequest(req(NEARBY), { env: { ALLOWED_ORIGIN: ORIGIN }, getUser, rateLimiter: createRateLimiter({ limit: 9 }) });
+  const res = await handleRequest(req(NEARBY), { env: { ALLOWED_ORIGIN: ORIGIN, ALLOWED_USER_IDS: USER.id }, getUser, rateLimiter: createRateLimiter({ limit: 9 }) });
   assert.equal(res.status, 500);
   assert.match((await res.json()).error.message, /未完了/);
 });

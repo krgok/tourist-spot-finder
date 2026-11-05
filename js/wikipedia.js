@@ -1,5 +1,6 @@
 import { getPreferredLanguageCode } from './config.js?v=20260708-4';
 import { isValidLatLng } from './validate.js?v=20260708-4';
+import { timeoutSignal } from './http.js?v=20260708-4';
 
 const WIKIPEDIA_TIMEOUT_MS = 5000;
 
@@ -36,13 +37,16 @@ export function nameSimilarity(a, b) {
 
 async function geosearchWikipedia(lang, lat, lng, fetchImpl = fetch) {
   const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${GEO_RADIUS_METERS}&gslimit=10&format=json&origin=*`;
+  const timer = timeoutSignal(WIKIPEDIA_TIMEOUT_MS);
   try {
-    const res = await fetchImpl(url, { signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS) });
+    const res = await fetchImpl(url, { signal: timer.signal });
     if (!res.ok) return [];
     const data = await res.json();
     return data?.query?.geosearch || [];
   } catch {
     return [];
+  } finally {
+    timer.clear();
   }
 }
 
@@ -50,8 +54,9 @@ async function fetchExtractByTitle(lang, title, fetchImpl = fetch) {
   const extractUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&titles=${encodeURIComponent(
     title
   )}&format=json&origin=*`;
+  const timer = timeoutSignal(WIKIPEDIA_TIMEOUT_MS);
   try {
-    const extractRes = await fetchImpl(extractUrl, { signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS) });
+    const extractRes = await fetchImpl(extractUrl, { signal: timer.signal });
     if (!extractRes.ok) return null;
     const extractData = await extractRes.json();
     const pages = extractData?.query?.pages;
@@ -68,6 +73,8 @@ async function fetchExtractByTitle(lang, title, fetchImpl = fetch) {
   } catch {
     // Wikipedia は補足情報にすぎない。タイムアウトや通信失敗で検索結果全体を失敗させない。
     return null;
+  } finally {
+    timer.clear();
   }
 }
 

@@ -171,7 +171,7 @@
       <div class="form-row form-row-wide">
         <div class="check-options">
           <label><input type="checkbox" id="open-now-only"> 今開いている場所だけ(営業時間が不明な場所は表示)</label>
-          <label><input type="checkbox" id="use-weather" checked> 天気を考慮する(雨・暑い日は屋内を上位に。検索地点の座標を天気サービス Open-Meteo に送ります)</label>
+          <label><input type="checkbox" id="use-weather" checked> 天気を考慮する(雨・暑い日は屋内を上位に。検索地点の座標(約 1 km に丸めた値)を天気サービス Open-Meteo に送ります)</label>
         </div>
       </div>
       <div class="form-row form-row-wide">
@@ -199,6 +199,7 @@
         <button id="open-route-btn" class="btn btn-small" type="button" disabled>この一覧を Google マップで順に回る</button>
         <button id="share-route-btn" class="btn btn-small" type="button" disabled>共有</button>
       </div>
+      <p class="hint">「場所を指定」「保存した起点」で検索したときは、「Google マップで順に回る」と「マップアプリで経路を開く」のリンクに、その場所が出発地として含まれます(自分のマップアプリで開く用です)。「共有」のリンクには出発地を含めないので、自宅やホテルの位置は共有先に伝わりません。</p>
       <h2 class="visually-hidden">検索結果</h2>
       <div id="results-list" class="results-list" aria-live="polite"></div>
     </div>
@@ -221,6 +222,7 @@
       <button id="fav-open-route-btn" class="btn btn-small" type="button" disabled>Google マップで順に回る</button>
       <button id="fav-share-btn" class="btn btn-small" type="button" disabled>共有</button>
     </div>
+    <p class="hint">「Google マップで順に回る」のリンクには、直前の検索が「場所を指定」「保存した起点」だった場合、その場所が出発地として含まれます。「共有」のリンクには出発地を含めません。</p>
     <p id="favorites-status" class="status-msg" role="status"></p>
     <div id="favorites-list" class="side-list"></div>
   </section>

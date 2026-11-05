@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDirectionsUrl, buildPlaceUrl, buildShareText, MAX_STOPS } from '../js/mapsLinks.js';
+import { buildDirectionsUrl, buildShareDirectionsUrl, buildPlaceUrl, buildShareText, MAX_STOPS } from '../js/mapsLinks.js';
 import { shareOrCopy } from '../js/share.js';
 
 const PID = (n) => 'ChIJ' + String(n).padStart(20, 'x');
@@ -103,4 +103,23 @@ test('shareOrCopy: Web Share → クリップボード → 非対応 の順', as
   assert.equal(await shareOrCopy(data, { nav: { share: async () => { throw new Error('NotAllowed'); }, clipboard } }), 'copied');
   assert.equal(await shareOrCopy(data, { nav: {} }), 'unsupported');
   assert.equal(await shareOrCopy(data, { nav: { clipboard: { writeText: async () => { throw new Error('denied'); } } } }), 'unsupported');
+});
+
+test('buildDirectionsUrl: 出発地(保存した起点など)を渡すと URL に入る(自分のマップアプリで開く用)', () => {
+  const home = { lat: 35.123456789, lng: 139.987654321 };
+  const u = parse(buildDirectionsUrl({ stops: [stop(1)], origin: home, travelMode: 'WALK' }).url);
+  assert.equal(u.searchParams.get('origin'), '35.123457,139.987654');
+});
+
+test('buildShareDirectionsUrl: 出発地を渡されても、共有リンクには入れない(自宅・ホテルの座標が共有先に伝わらない)', () => {
+  const home = { lat: 35.123456, lng: 139.987654 };
+  const r = buildShareDirectionsUrl({ stops: [stop(1), stop(2)], origin: home, travelMode: 'TRANSIT' });
+  const u = parse(r.url);
+  assert.equal(u.searchParams.has('origin'), false);
+  assert.ok(!r.url.includes('35.123456') && !r.url.includes('139.987654'), '出発地の座標が URL のどこにも出ない');
+  assert.equal(u.searchParams.get('destination'), '35.002,139.002');
+  assert.equal(u.searchParams.get('waypoints'), '35.001,139.001');
+  assert.equal(u.searchParams.get('travelmode'), 'transit');
+  assert.deepEqual([r.count, r.truncated], [2, false]);
+  assert.equal(buildShareDirectionsUrl({ stops: [], origin: home }), null);
 });

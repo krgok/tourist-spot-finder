@@ -3,15 +3,15 @@
 //
 // 目的: Google の API キーをブラウザに置かずに済ませる。キーはサーバー側の秘密(環境変数)にだけ置く。
 // - ログイン済み(Supabase の JWT をサーバー側で検証済み)の利用者だけが呼べる
-// - 任意で、許可する利用者(ALLOWED_USER_IDS)を家族だけに絞れる
+// - 許可する利用者(ALLOWED_USER_IDS)を家族だけに絞る(必須。未設定なら全拒否)
 // - 呼べる操作・フィールド・件数・半径はサーバー側で固定/制限する(クライアントは課金の大きい項目を要求できない)
 // - エラー文にキーが混ざらない。キーはログにも出さない
 //
 // 環境変数(Supabase の secrets。リポジトリには書かない):
 //   GOOGLE_MAPS_SERVER_KEY  必須。Places API (New) と Routes API だけに制限した、サーバー用のキー
 //   ALLOWED_ORIGIN          必須。このアプリを配信する URL の origin(カンマ区切りで複数可)。例: https://example.github.io
-//   ALLOWED_USER_IDS        推奨。呼び出しを許可する利用者の ID(auth.users.id)のカンマ区切り。未設定なら、ログイン済みの全員
-//   RATE_LIMIT_PER_MIN      任意。1 人あたり 1 分の上限(既定 30)。※ 実行環境ごとのメモリ上の制限(ベストエフォート)
+//   ALLOWED_USER_IDS        必須。呼び出しを許可する利用者の ID(auth.users.id)のカンマ区切り。未設定・空ならすべて拒否(500)
+//   RATE_LIMIT_PER_MIN      任意。1 人あたり 1 分の上限(既定 120。検索 1 回 = 検索 1 + 写真最大 20)。※ 実行環境ごとのメモリ上の制限(ベストエフォート)
 
 // クライアント(js/config.js の PLACE_FIELD_MASK)と同じ内容。ずれないことはテストで検査する。
 export const PLACE_FIELD_MASK = [
@@ -136,6 +136,10 @@ function allowedOrigins(env) {
   return String(env.ALLOWED_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+function allowedUserIds(env) {
+  return String(env.ALLOWED_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
@@ -151,11 +155,14 @@ function respond(status, payload, origin) {
   return new Response(payload === null ? null : JSON.stringify(payload), { status, headers });
 }
 
+// 1 回の検索で、検索 1 回 + 写真の取得(最大 20 件)が走るため、既定は 120(30 だと 2 回目の検索で詰まる)
+export const DEFAULT_RATE_LIMIT_PER_MIN = 120;
+
 // RATE_LIMIT_PER_MIN ごとに 1 つのリミッターを使い回す(実行環境のメモリ上)
 const limiters = new Map();
 function limiterFor(env) {
   const n = Number(env.RATE_LIMIT_PER_MIN);
-  const limit = Number.isInteger(n) && n >= 1 && n <= 600 ? n : 30;
+  const limit = Number.isInteger(n) && n >= 1 && n <= 600 ? n : DEFAULT_RATE_LIMIT_PER_MIN;
   if (!limiters.has(limit)) limiters.set(limit, createRateLimiter({ limit }));
   return limiters.get(limit);
 }
@@ -169,8 +176,11 @@ export async function handleRequest(request, { env, getUser, fetchImpl = globalT
   const origin = request.headers.get('origin');
   const origins = allowedOrigins(env);
   if (!origins.length) return respond(500, { error: { code: 'NOT_CONFIGURED', message: 'サーバーの設定(ALLOWED_ORIGIN)が未完了です。' } }, null);
+  // 利用者の限定は必須(未設定のままだと、サインアップできる誰でも Google の課金を使えてしまうため、すべて拒否する)
+  const allow = allowedUserIds(env);
+  if (!allow.length) return respond(500, { error: { code: 'NOT_CONFIGURED', message: 'サーバーの設定が未完了です。' } }, null);
 
-  // ブラウザ(許可した配信元)以外からの呼び出しは受け付けない
+  // 許可した配信元以外は受け付けない(Origin ヘッダーは偽装できるため、これは補助。実際の防御は JWT・利用者の限定・回数制限)
   if (!origin || !origins.includes(origin)) return respond(403, { error: { code: 'ORIGIN_NOT_ALLOWED', message: '許可されていない配信元です。' } }, null);
 
   if (request.method === 'OPTIONS') return respond(204, null, origin);
@@ -189,8 +199,7 @@ export async function handleRequest(request, { env, getUser, fetchImpl = globalT
     }
     if (!user?.id) throw new HttpError(401, 'UNAUTHENTICATED', 'ログインの有効期限が切れました。ログインし直してください。');
 
-    const allow = String(env.ALLOWED_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
-    if (allow.length && !allow.includes(user.id)) {
+    if (!allow.includes(user.id)) {
       throw new HttpError(403, 'USER_NOT_ALLOWED', 'このアカウントには、この機能の利用が許可されていません。');
     }
 

@@ -1,6 +1,9 @@
 // 天気の取得と、おすすめ順への反映(屋内/屋外)。
 // 天気は Open-Meteo(キー不要・ブラウザから呼べる公開 API)から取得する。
-// 送る情報は検索地点の座標のみ。失敗しても検索は止めない(null を返す)。
+// 送る情報は検索地点の座標のみ(約 1 km の精度=小数 2 桁に丸めて送る。天気には十分で、自宅等の正確な位置を送らない)。
+// 失敗しても検索は止めない(null を返す)。
+
+import { timeoutSignal } from './http.js?v=20260708-4';
 
 const WEATHER_TIMEOUT_MS = 5000;
 
@@ -16,10 +19,13 @@ const RAIN_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 
 export const THRESHOLDS = { rainMm: 0.2, rainProbability: 60, hotApparentC: 35 };
 export const WEATHER_ADJUST = { indoorBonus: 1.1, outdoorPenalty: 0.92 };
 
+// 小数 2 桁(約 1 km)に丸める
+export const roundCoord = (v) => Number(Number(v).toFixed(2)) + 0; // + 0 で -0 を 0 にする
+
 export function buildWeatherUrl({ lat, lng }) {
   const params = new URLSearchParams({
-    latitude: String(lat),
-    longitude: String(lng),
+    latitude: String(roundCoord(lat)),
+    longitude: String(roundCoord(lng)),
     current: 'temperature_2m,apparent_temperature,precipitation,weather_code',
     daily: 'precipitation_probability_max',
     timezone: 'auto',
@@ -64,12 +70,15 @@ export function describeWeather(w, { applied = true } = {}) {
 // 失敗(通信・タイムアウト・不正な応答)はすべて null。検索を止めない。
 export async function fetchWeather({ lat, lng, fetchImpl = globalThis.fetch }) {
   if (typeof lat !== 'number' || typeof lng !== 'number' || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const timer = timeoutSignal(WEATHER_TIMEOUT_MS);
   try {
-    const res = await fetchImpl(buildWeatherUrl({ lat, lng }), { signal: AbortSignal.timeout(WEATHER_TIMEOUT_MS) });
+    const res = await fetchImpl(buildWeatherUrl({ lat, lng }), { signal: timer.signal });
     if (!res.ok) return null;
     return parseWeather(await res.json());
   } catch {
     return null;
+  } finally {
+    timer.clear();
   }
 }
 

@@ -18,7 +18,7 @@ import { API_PROXY_URL } from './config.js?v=20260708-4';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
 import { fetchRoute } from './routes.js?v=20260708-4';
 import { formatDuration } from './format.js?v=20260708-4';
-import { buildDirectionsUrl, buildShareText, MAX_STOPS } from './mapsLinks.js?v=20260708-4';
+import { buildDirectionsUrl, buildShareDirectionsUrl, buildShareText, MAX_STOPS } from './mapsLinks.js?v=20260708-4';
 import { shareOrCopy } from './share.js?v=20260708-4';
 import { parseStoredOrigins, serializeOrigins, addOrigin, removeOrigin, ORIGINS_STORAGE_KEY } from './origins.js?v=20260708-4';
 
@@ -41,7 +41,7 @@ let currentTravelMode = isOneOf(storedTravelMode, TRAVEL_MODES) ? storedTravelMo
 let lastSearchRadius = Number(document.getElementById('radius-select').value) || 2000;
 let isSearching = false;
 let currentWeather = null; // 直近の検索地点の天気(取得できなかった/オフのときは null)
-let currentOriginMode = 'current'; // 'current' | 'custom'(共有リンクに出発地を入れるのは custom のときだけ)
+let currentOriginMode = 'current'; // 'current' | 'custom'(指定/保存した地点から検索したとき。出発地を URL に入れるのは「マップアプリで開く」リンクだけで、共有リンクには入れない)
 
 const searchBtn = document.getElementById('search-btn');
 const genreSelect = document.getElementById('genre-select');
@@ -554,9 +554,11 @@ function updateRouteButtons() {
   favOpenRouteBtn.disabled = favShareBtn.disabled = !hasFav;
 }
 
-function routeFrom(items, { toStop, toName }) {
+// forShare: 共有リンクでは出発地(保存した起点=自宅・ホテル等を含む)を URL に入れない
+function routeFrom(items, { toStop, toName }, { forShare = false } = {}) {
   const stops = items.map(toStop);
-  const route = buildDirectionsUrl({
+  const build = forShare ? buildShareDirectionsUrl : buildDirectionsUrl;
+  const route = build({
     stops,
     origin: currentOriginMode === 'custom' ? currentPosition : null,
     travelMode: currentTravelMode,
@@ -583,7 +585,7 @@ function handleOpenRoute(items, adapter, statusId) {
 }
 
 async function handleShareRoute(items, adapter, statusId, title) {
-  const route = routeFrom(items, adapter);
+  const route = routeFrom(items, adapter, { forShare: true });
   if (!route) return setStatus(statusId, '位置情報のあるスポットがありません。', 'error');
   const text = buildShareText({ title, names: route.names, url: route.url });
   const result = await shareOrCopy({ title, text, url: route.url });
