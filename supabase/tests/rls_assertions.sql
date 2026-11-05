@@ -106,11 +106,44 @@ select pg_temp.check_eq('RLS enabled on both tables',
 select pg_temp.check_eq('no policy without a user_id condition',
   (select count(*)::text from pg_policies where schemaname = 'tourist_app'
      and (coalesce(qual, '') !~ 'user_id' and coalesce(with_check, '') !~ 'user_id')), '0');
-select pg_temp.check_eq('no update policy (intended)',
-  (select count(*)::text from pg_policies where schemaname = 'tourist_app' and cmd = 'UPDATE'), '0');
+select pg_temp.check_eq('update policy exists only on favorites, for authenticated, own rows',
+  (select string_agg(tablename || ':' || roles::text || ':' || (qual like '%user_id%' and with_check like '%user_id%')::text, ',')
+     from pg_policies where schemaname = 'tourist_app' and cmd = 'UPDATE'), 'favorites:{authenticated}:true');
+select pg_temp.check_eq('authenticated may update only note/status/visited_at (column-level)',
+  (select string_agg(column_name, ',' order by column_name) from information_schema.column_privileges
+     where table_schema = 'tourist_app' and grantee = 'authenticated' and privilege_type = 'UPDATE'), 'note,status,visited_at');
+select pg_temp.check_eq('search_history has no update privilege for anyone',
+  (select count(*)::text from information_schema.column_privileges
+     where table_schema = 'tourist_app' and table_name = 'search_history' and privilege_type = 'UPDATE'
+       and grantee in ('anon', 'authenticated', 'PUBLIC')), '0');
 select pg_temp.check_eq('anon holds no table privileges',
   (select count(*)::text from information_schema.role_table_grants
      where table_schema = 'tourist_app' and grantee in ('anon', 'PUBLIC')), '0');
 select pg_temp.check_eq('authenticated holds exactly select/insert/delete',
   (select string_agg(distinct privilege_type, ',' order by privilege_type) from information_schema.role_table_grants
      where table_schema = 'tourist_app' and grantee = 'authenticated'), 'DELETE,INSERT,SELECT');
+
+-- ===== お気に入りのメモ・訪問済み(20261105010000_favorites_notes.sql) =====
+delete from tourist_app.favorites;
+insert into tourist_app.favorites (user_id, place_id, display_name) values (:'A', 'n1', 'N1'), (:'B', 'nB', 'NB');
+select pg_temp.check_eq('existing rows default to status want', (select status from tourist_app.favorites where place_id = 'n1'), 'want');
+select pg_temp.check_eq('A updates note of own row', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set note = '午前に行く' where place_id = 'n1'$q$), 'ok:1');
+select pg_temp.check_eq('A marks visited with a date', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set status = 'visited', visited_at = date '2026-11-05' where place_id = 'n1'$q$), 'ok:1');
+select pg_temp.check_eq('note persisted', (select note || '/' || status || '/' || visited_at from tourist_app.favorites where place_id = 'n1'), '午前に行く/visited/2026-11-05');
+select pg_temp.check_eq('A cannot update B row (hidden by RLS)', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set note = 'hacked' where place_id = 'nB'$q$), 'ok:0');
+select pg_temp.check_eq('B row untouched', (select coalesce(note, 'null') from tourist_app.favorites where place_id = 'nB'), 'null');
+select pg_temp.check_eq('A cannot change user_id', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set user_id = '00000000-0000-0000-0000-00000000000b' where place_id = 'n1'$q$), 'err:42501');
+select pg_temp.check_eq('A cannot change place_id', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set place_id = 'zz' where place_id = 'n1'$q$), 'err:42501');
+select pg_temp.check_eq('A cannot change display_name', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set display_name = 'x' where place_id = 'n1'$q$), 'err:42501');
+select pg_temp.check_eq('A cannot change snapshot', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set snapshot = '{}' where place_id = 'n1'$q$), 'err:42501');
+select pg_temp.check_eq('anon cannot update', pg_temp.run_as('anon', null, $q$update tourist_app.favorites set note = 'x'$q$), 'err:42501');
+select pg_temp.check_eq('note over 1000 chars rejected', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set note = repeat('あ', 1001) where place_id = 'n1'$q$), 'err:23514');
+select pg_temp.check_eq('note of exactly 1000 chars accepted', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set note = repeat('あ', 1000) where place_id = 'n1'$q$), 'ok:1');
+select pg_temp.check_eq('invalid status rejected', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set status = 'done' where place_id = 'n1'$q$), 'err:23514');
+select pg_temp.check_eq('visited_at with status want rejected', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set status = 'want', visited_at = date '2026-11-05' where place_id = 'n1'$q$), 'err:23514');
+select pg_temp.check_eq('back to want requires clearing visited_at', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set status = 'want', visited_at = null where place_id = 'n1'$q$), 'ok:1');
+select pg_temp.check_eq('visited_at out of range rejected', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set status = 'visited', visited_at = date '1999-12-31' where place_id = 'n1'$q$), 'err:23514');
+select pg_temp.check_eq('visited without a date is allowed', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.favorites set status = 'visited', visited_at = null where place_id = 'n1'$q$), 'ok:1');
+select pg_temp.check_eq('insert still defaults to want', pg_temp.run_as('authenticated', :'A', $q$insert into tourist_app.favorites(place_id,display_name) values ('n2','N2')$q$), 'ok:1');
+select pg_temp.check_eq('insert cannot preset status visited with bad combo', pg_temp.run_as('authenticated', :'A', $q$insert into tourist_app.favorites(place_id,display_name,status,visited_at) values ('n3','N3','want',date '2026-11-05')$q$), 'err:23514');
+select pg_temp.check_eq('update of history is still impossible', pg_temp.run_as('authenticated', :'A', $q$update tourist_app.search_history set max_count = 5$q$), 'err:42501');
