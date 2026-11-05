@@ -13,6 +13,8 @@ import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=202
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
 import { fetchRoute } from './routes.js?v=20260708-4';
 import { formatDuration } from './format.js?v=20260708-4';
+import { buildDirectionsUrl, buildShareText, MAX_STOPS } from './mapsLinks.js?v=20260708-4';
+import { shareOrCopy } from './share.js?v=20260708-4';
 
 const SORT_KEY_STORAGE = 'tourist-app.sortKey';
 const TRAVEL_MODE_STORAGE = 'tourist-app.travelMode';
@@ -32,6 +34,7 @@ let currentSortKey = isOneOf(storedSort, SORT_OPTIONS) ? storedSort : 'recommend
 let currentTravelMode = isOneOf(storedTravelMode, TRAVEL_MODES) ? storedTravelMode : 'WALK';
 let lastSearchRadius = Number(document.getElementById('radius-select').value) || 2000;
 let isSearching = false;
+let currentOriginMode = 'current'; // 'current' | 'custom'(共有リンクに出発地を入れるのは custom のときだけ)
 
 const searchBtn = document.getElementById('search-btn');
 const genreSelect = document.getElementById('genre-select');
@@ -165,12 +168,14 @@ async function refreshFavorites() {
   if (!currentUser) {
     favoritesCache = [];
     renderFavorites([], {});
+    updateRouteButtons();
     return;
   }
   try {
     favoritesCache = await listFavorites();
     renderFavorites(favoritesCache, { onRemove: handleRemoveFavorite, onSearchNear: handleFavoriteSearchNear });
     setStatus('favorites-status', '');
+    updateRouteButtons();
   } catch (err) {
     console.error(err);
     setStatus('favorites-status', err.message, 'error');
@@ -334,8 +339,75 @@ function rerenderResults() {
     onFavoriteToggle: handleFavoriteToggle,
     onRouteClick: handleRouteClick,
     isFavorited,
+    getDirectionsUrl: (place) =>
+      buildDirectionsUrl({
+        stops: [{ lat: place.location?.latitude, lng: place.location?.longitude, placeId: place.id }],
+        origin: currentOriginMode === 'custom' ? currentPosition : null,
+        travelMode: currentTravelMode,
+      })?.url,
   });
+  updateRouteButtons();
 }
+
+// ---- Google マップで順に回る / 共有 ----
+const openRouteBtn = document.getElementById('open-route-btn');
+const shareRouteBtn = document.getElementById('share-route-btn');
+const favOpenRouteBtn = document.getElementById('fav-open-route-btn');
+const favShareBtn = document.getElementById('fav-share-btn');
+
+function updateRouteButtons() {
+  openRouteBtn.disabled = shareRouteBtn.disabled = currentPlaces.length === 0;
+  const hasFav = favoritesCache.some((f) => f.lat != null && f.lng != null);
+  favOpenRouteBtn.disabled = favShareBtn.disabled = !hasFav;
+}
+
+function routeFrom(items, { toStop, toName }) {
+  const stops = items.map(toStop);
+  const route = buildDirectionsUrl({
+    stops,
+    origin: currentOriginMode === 'custom' ? currentPosition : null,
+    travelMode: currentTravelMode,
+  });
+  return route && { ...route, names: items.slice(0, route.count).map(toName) };
+}
+
+const placeAdapter = {
+  toStop: (p) => ({ lat: p.location?.latitude, lng: p.location?.longitude, placeId: p.id }),
+  toName: (p) => p.displayName?.text || '名称不明',
+};
+const favoriteAdapter = {
+  toStop: (f) => ({ lat: f.lat, lng: f.lng, placeId: f.place_id }),
+  toName: (f) => f.display_name,
+};
+
+function handleOpenRoute(items, adapter, statusId) {
+  const route = routeFrom(items, adapter);
+  if (!route) return setStatus(statusId, '位置情報のあるスポットがありません。', 'error');
+  window.open(route.url, '_blank', 'noopener,noreferrer');
+  if (route.truncated) {
+    setStatus(statusId, `Google マップで開ける地点は最大${MAX_STOPS}か所のため、先頭の${route.count}か所を開きました。`);
+  }
+}
+
+async function handleShareRoute(items, adapter, statusId, title) {
+  const route = routeFrom(items, adapter);
+  if (!route) return setStatus(statusId, '位置情報のあるスポットがありません。', 'error');
+  const text = buildShareText({ title, names: route.names, url: route.url });
+  const result = await shareOrCopy({ title, text, url: route.url });
+  const note = route.truncated ? `(先頭の${route.count}か所のみ)` : '';
+  if (result === 'copied') setStatus(statusId, `共有用のリンクをコピーしました${note}。`, 'success');
+  else if (result === 'unsupported') setStatus(statusId, `この端末では共有できません。次のリンクをコピーしてください: ${route.url}`);
+  else if (result === 'shared') setStatus(statusId, `共有しました${note}。`, 'success');
+}
+
+openRouteBtn.addEventListener('click', () => handleOpenRoute(currentPlaces, placeAdapter, 'search-status'));
+shareRouteBtn.addEventListener('click', () => handleShareRoute(currentPlaces, placeAdapter, 'search-status', '行きたい場所'));
+favOpenRouteBtn.addEventListener('click', () =>
+  handleOpenRoute(favoritesCache.filter((f) => f.lat != null && f.lng != null), favoriteAdapter, 'favorites-status')
+);
+favShareBtn.addEventListener('click', () =>
+  handleShareRoute(favoritesCache.filter((f) => f.lat != null && f.lng != null), favoriteAdapter, 'favorites-status', 'お気に入りの場所')
+);
 
 async function runSearch(override) {
   if (!currentSettings.apiKey) {
@@ -387,6 +459,7 @@ async function runSearch(override) {
       throw new Error('検索地点の位置情報が正しくありません。場所を指定し直してください。');
     }
     currentPosition = position;
+    currentOriginMode = override || locationMode === 'custom' ? 'custom' : 'current';
     lastSearchRadius = radiusMeters;
     const isLowAccuracy = position.accuracy != null && position.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
 

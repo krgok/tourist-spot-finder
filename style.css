@@ -403,6 +403,8 @@ body {
 .key-safety ul { margin: 6px 0 0; padding-left: 20px; }
 .key-safety code { word-break: break-all; }
 
+.results-actions { flex-wrap: wrap; }
+
 /* ---- アクセシビリティ・使いやすさ(2026-11 点検) ---- */
 .visually-hidden {
   position: absolute !important;
