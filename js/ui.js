@@ -1,6 +1,7 @@
 import { buildPhotoUrl } from './places.js?v=20260708-4';
 import { buildDescription } from './description.js?v=20260708-4';
 import { GENRES } from './config.js?v=20260708-4';
+import { createExternalLink } from './safeUrl.js?v=20260708-4';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);
@@ -8,12 +9,19 @@ export function setStatus(elementId, message, type = '') {
   el.className = 'status-msg' + (type ? ' ' + type : '');
 }
 
+function showEmptyMessage(container, text) {
+  const p = document.createElement('p');
+  p.className = 'hint';
+  p.textContent = text;
+  container.replaceChildren(p);
+}
+
 export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited } = {}) {
   const container = document.getElementById('results-list');
-  container.innerHTML = '';
+  container.replaceChildren();
 
   if (!places.length) {
-    container.innerHTML = '<p class="hint">この条件ではスポットが見つかりませんでした。ジャンル・半径・件数を変更して再検索してください。</p>';
+    showEmptyMessage(container, 'この条件ではスポットが見つかりませんでした。ジャンル・半径・件数を変更して再検索してください。');
     return;
   }
 
@@ -29,8 +37,12 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     const img = document.createElement('img');
     img.className = 'place-photo';
     img.alt = name;
-    img.src = photoUrl || '';
-    if (!photoUrl) img.style.visibility = 'hidden';
+    img.loading = 'lazy';
+    if (photoUrl) {
+      img.src = photoUrl;
+    } else {
+      img.style.visibility = 'hidden';
+    }
 
     const body = document.createElement('div');
     body.className = 'place-body';
@@ -60,30 +72,14 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
 
     const linksEl = document.createElement('div');
     linksEl.className = 'place-links';
-    if (place.websiteUri) {
-      const websiteLink = document.createElement('a');
-      websiteLink.href = place.websiteUri;
-      websiteLink.target = '_blank';
-      websiteLink.rel = 'noopener';
-      websiteLink.textContent = '公式サイト';
-      linksEl.appendChild(websiteLink);
-    }
-    if (place.googleMapsUri) {
-      const mapsLink = document.createElement('a');
-      mapsLink.href = place.googleMapsUri;
-      mapsLink.target = '_blank';
-      mapsLink.rel = 'noopener';
-      mapsLink.textContent = 'Googleマップで見る';
-      linksEl.appendChild(mapsLink);
-    }
-    if (place._wikipedia?.url) {
-      const wikiLink = document.createElement('a');
-      wikiLink.href = place._wikipedia.url;
-      wikiLink.target = '_blank';
-      wikiLink.rel = 'noopener';
-      wikiLink.textContent = 'Wikipedia（出典）';
-      linksEl.appendChild(wikiLink);
-    }
+    // 外部由来の URL は http(s) だけ許可し、noopener noreferrer を付けて開く。
+    [
+      createExternalLink(place.websiteUri, '公式サイト'),
+      createExternalLink(place.googleMapsUri, 'Googleマップで見る'),
+      createExternalLink(place._wikipedia?.url, 'Wikipedia（出典）'),
+    ]
+      .filter(Boolean)
+      .forEach((link) => linksEl.appendChild(link));
 
     const actionsEl = document.createElement('div');
     actionsEl.className = 'place-actions';
@@ -147,10 +143,10 @@ export function scrollToCard(index) {
 
 export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
   const container = document.getElementById('favorites-list');
-  container.innerHTML = '';
+  container.replaceChildren();
 
   if (!favorites.length) {
-    container.innerHTML = '<p class="hint">お気に入りはまだありません。</p>';
+    showEmptyMessage(container, 'お気に入りはまだありません。');
     return;
   }
 
@@ -195,10 +191,10 @@ export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
 
 export function renderHistory(history, { onDelete, onRerun } = {}) {
   const container = document.getElementById('history-list');
-  container.innerHTML = '';
+  container.replaceChildren();
 
   if (!history.length) {
-    container.innerHTML = '<p class="hint">検索履歴はまだありません。</p>';
+    showEmptyMessage(container, '検索履歴はまだありません。');
     return;
   }
 

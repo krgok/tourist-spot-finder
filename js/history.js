@@ -1,22 +1,10 @@
 import { supabase } from './supabaseClient.js?v=20260708-4';
+import { buildHistoryRow } from './records.js?v=20260708-4';
 
 export async function recordSearch({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel }) {
-  const results = places.slice(0, 20).map((place) => ({
-    place_id: place.id,
-    display_name: place.displayName?.text || '',
-    rating: place.rating ?? null,
-    location: place.location || null,
-  }));
-
-  const { error } = await supabase.from('search_history').insert({
-    lat,
-    lng,
-    radius_meters: radiusMeters,
-    max_count: maxCount,
-    result_count: places.length,
-    results,
-    meta: { genre, locationLabel },
-  });
+  const { error } = await supabase
+    .from('search_history')
+    .insert(buildHistoryRow({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel }));
 
   if (error) throw new Error('検索履歴の保存に失敗しました: ' + error.message);
 }

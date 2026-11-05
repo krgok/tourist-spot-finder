@@ -1,4 +1,7 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// 外部CDN(esm.sh)から読み込むため、バージョンは完全固定にする(@2 のような浮動指定だと、
+// 配信側の更新や改ざんがそのまま動いてしまう)。更新するときは意図的にここを書き換える。
+// ES モジュールの import には SRI(integrity)を付けられない。
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.118.0';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=20260708-4';
 
 // 既存のSupabaseプロジェクトに同居させるため、専用スキーマ tourist_app を使う。
