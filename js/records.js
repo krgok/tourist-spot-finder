@@ -53,7 +53,7 @@ export function buildFavoriteRow(place, category = 'tourist_attraction', meta = 
   };
 }
 
-export function buildHistoryRow({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel }) {
+export function buildHistoryRow({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel, region, language }) {
   const results = places.slice(0, LIMITS.historyResults).map((place) => ({
     place_id: cut(place.id, LIMITS.placeId),
     display_name: cut(place.displayName?.text, LIMITS.displayName) || '',
@@ -69,6 +69,11 @@ export function buildHistoryRow({ lat, lng, radiusMeters, maxCount, places, genr
     max_count: maxCount,
     result_count: places.length,
     results,
-    meta: { genre: cut(genre, 50), locationLabel: cut(locationLabel, LIMITS.historyLabel) },
+    meta: {
+      genre: cut(genre, 50),
+      locationLabel: cut(locationLabel, LIMITS.historyLabel),
+      region: cut(region, 10),
+      language: cut(language, 10),
+    },
   };
 }

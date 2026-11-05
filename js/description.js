@@ -21,6 +21,11 @@ const TYPE_LABELS = {
   library: '図書館',
   business_center: 'ビジネスセンター',
   spa: '温泉・スパ',
+  shinto_shrine: '神社',
+  buddhist_temple: '寺院',
+  hindu_temple: 'ヒンドゥー寺院',
+  shopping_mall: 'ショッピングモール',
+  market: '市場',
 };
 
 const PRICE_LEVEL_LABELS = {
@@ -73,21 +78,31 @@ function describeOpeningHours(openingHours) {
 // Google側に日本語訳が用意されていないeditorialSummary/レビューは原文(多くは英語)のまま
 // 返ってくることがある。説明文が英語だらけにならないよう、日本語の割合が低いテキストは
 // そもそも採用せず、テンプレート文のフォールバックに任せる。
-function isMostlyJapanese(text) {
-  if (!text) return false;
-  const nonSpaceLength = text.replace(/\s/g, '').length;
-  if (nonSpaceLength === 0) return false;
-  const japaneseCharCount = (text.match(/[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/g) || []).length;
-  return japaneseCharCount / nonSpaceLength >= 0.3;
+export function isMostlyJapanese(text) {
+  return scriptRatio(text, /[぀-ヿ㐀-䶿一-鿿ｦ-ﾟ]/g) >= 0.3;
 }
 
-function pickReviewExcerpts(reviews = [], maxCount = 2, maxLengthEach = 120) {
+function scriptRatio(text, regex) {
+  if (!text) return 0;
+  const nonSpaceLength = text.replace(/\s/g, '').length;
+  if (nonSpaceLength === 0) return 0;
+  return (text.match(regex) || []).length / nonSpaceLength;
+}
+
+// 選んだ表示言語の文章かどうか(別の言語の説明文・口コミが混ざらないように)。
+export function isMostlyLanguage(text, lang = 'ja') {
+  if (lang === 'en') return scriptRatio(text, /[A-Za-z]/g) >= 0.5;
+  if (lang === 'th') return scriptRatio(text, /[฀-๿]/g) >= 0.3;
+  return isMostlyJapanese(text);
+}
+
+function pickReviewExcerpts(reviews = [], maxCount = 2, maxLengthEach = 120, lang = 'ja') {
   const candidates = reviews
     .map((review) => ({
       text: review.text?.text?.trim(),
       rating: review.rating,
     }))
-    .filter((review) => isMostlyJapanese(review.text));
+    .filter((review) => isMostlyLanguage(review.text, lang));
 
   // 短すぎる相槌的なレビュー(「良い」「最高」等)よりも、内容のあるものを優先する。
   candidates.sort((a, b) => b.text.length - a.text.length);
@@ -100,7 +115,7 @@ function pickReviewExcerpts(reviews = [], maxCount = 2, maxLengthEach = 120) {
   });
 }
 
-export function buildDescription(place) {
+export function buildDescription(place, { lang = 'ja' } = {}) {
   const name = place.displayName?.text || '名称不明のスポット';
   const address = place.formattedAddress || '';
   const typeLabel = describeTypes(place.types);
@@ -109,9 +124,10 @@ export function buildDescription(place) {
 
   const parts = [];
 
-  if (isMostlyJapanese(place._wikipedia?.extract)) {
+  // 画面の文言は日本語なので、選んだ言語の版が無く日本語版の要約が見つかった場合も採用する。
+  if (isMostlyLanguage(place._wikipedia?.extract, lang) || isMostlyJapanese(place._wikipedia?.extract)) {
     parts.push(place._wikipedia.extract);
-  } else if (isMostlyJapanese(place.editorialSummary?.text)) {
+  } else if (isMostlyLanguage(place.editorialSummary?.text, lang)) {
     parts.push(place.editorialSummary.text);
   }
 
@@ -135,7 +151,7 @@ export function buildDescription(place) {
   // 実際のクチコミはこのスポット固有の情報なので、文字数が足りているかに関わらず
   // 積極的に本文へ組み込む(以前は文字数不足時の最終手段でしか使われず、結果的に
   // どの場所も同じテンプレート文だけで構成されがちだった)。
-  const reviewExcerpts = pickReviewExcerpts(place.reviews);
+  const reviewExcerpts = pickReviewExcerpts(place.reviews, 2, 120, lang);
   reviewExcerpts.forEach((excerpt) => {
     parts.push(`訪問者の声（Googleレビューより）：${excerpt}`);
   });

@@ -5,7 +5,8 @@ import { searchNearbyTouristSpots, geocodeLocation, sortPlaces } from './places.
 import { setStatus, renderResults, renderFavorites, renderHistory, updateRouteInfo, scrollToCard, prefersReducedMotion } from './ui.js?v=20260708-4';
 import { MapController } from './map.js?v=20260708-4';
 import { fetchWikipediaExtract } from './wikipedia.js?v=20260708-4';
-import { LOW_ACCURACY_THRESHOLD_METERS, GENRES, SORT_OPTIONS, TRAVEL_MODES } from './config.js?v=20260708-4';
+import { LOW_ACCURACY_THRESHOLD_METERS, GENRES, SORT_OPTIONS, TRAVEL_MODES, REGIONS, LANGUAGES } from './config.js?v=20260708-4';
+import { normalizeRegion, normalizeLanguage, guessRegion, genreKeysFor, genreForRegion } from './region.js?v=20260708-4';
 import { storageGet, storageSet } from './storage.js?v=20260708-4';
 import { normalizeForUi, clampSearchParams, isOneOf } from './params.js?v=20260708-4';
 import { isValidLatLng } from './validate.js?v=20260708-4';
@@ -39,6 +40,11 @@ let currentOriginMode = 'current'; // 'current' | 'custom'(共有リンクに出
 
 const searchBtn = document.getElementById('search-btn');
 const genreSelect = document.getElementById('genre-select');
+const regionSelect = document.getElementById('region-select');
+const languageSelect = document.getElementById('language-select');
+const REGION_STORAGE = 'tourist-app.region';
+const LANGUAGE_STORAGE = 'tourist-app.language';
+let currentResultsLanguage = 'ja'; // 検索結果を取得したときの言語(説明文の判定に使う)
 const genreDescriptionEl = document.getElementById('genre-description');
 const radiusSelect = document.getElementById('radius-select');
 const countSelect = document.getElementById('count-select');
@@ -124,7 +130,42 @@ function updateGenreDescription() {
 }
 
 genreSelect.addEventListener('change', updateGenreDescription);
-updateGenreDescription();
+
+// ---- 地域(日本/タイ)と言語 ----
+function populateGenres(region, keep) {
+  const selected = genreForRegion(region, keep ?? genreSelect.value);
+  genreSelect.replaceChildren();
+  genreKeysFor(region).forEach((key) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = GENRES[key].label;
+    genreSelect.appendChild(opt);
+  });
+  genreSelect.value = selected;
+  updateGenreDescription();
+}
+
+function applyRegion(region, { keepGenre } = {}) {
+  const r = normalizeRegion(region);
+  regionSelect.value = r;
+  populateGenres(r, keepGenre);
+}
+
+const storedRegion = storageGet(REGION_STORAGE);
+// 初回(保存された設定なし)は、タイムゾーンから地域を推定する(位置情報は使わない)。
+applyRegion(storedRegion ?? guessRegion(Intl.DateTimeFormat().resolvedOptions().timeZone));
+languageSelect.value = normalizeLanguage(storageGet(LANGUAGE_STORAGE));
+
+regionSelect.addEventListener('change', () => {
+  storageSet(REGION_STORAGE, regionSelect.value);
+  applyRegion(regionSelect.value);
+});
+languageSelect.addEventListener('change', () => {
+  storageSet(LANGUAGE_STORAGE, languageSelect.value);
+  if (currentPlaces.length) {
+    setStatus('search-status', `表示言語を${LANGUAGES[languageSelect.value].label}に変更しました。次の検索から反映されます。`);
+  }
+});
 
 const savedOriginSelect = document.getElementById('saved-origin-select');
 function updateLocationInputs() {
@@ -291,7 +332,9 @@ function handleHistoryRerun(entry) {
     setStatus('search-status', 'この履歴の検索地点が正しくないため、再検索できません。', 'error');
     return;
   }
-  if (entry.meta?.genre && GENRES[entry.meta.genre]) {
+  if (entry.meta?.region && REGIONS[entry.meta.region]) applyRegion(entry.meta.region, { keepGenre: entry.meta.genre });
+  if (entry.meta?.language && LANGUAGES[entry.meta.language]) languageSelect.value = entry.meta.language;
+  if (entry.meta?.genre && genreKeysFor(regionSelect.value).includes(entry.meta.genre)) {
     genreSelect.value = entry.meta.genre;
     updateGenreDescription();
   }
@@ -411,6 +454,7 @@ function focusOnMap(index) {
 
 function rerenderResults() {
   renderResults(currentPlaces, currentSettings.apiKey, {
+    lang: currentResultsLanguage,
     onCardClick: focusOnMap,
     onFavoriteToggle: handleFavoriteToggle,
     onRouteClick: handleRouteClick,
@@ -532,7 +576,7 @@ async function runSearch(override) {
         return;
       }
       setStatus('search-status', '指定した場所を検索しています...');
-      position = await geocodeLocation({ apiKey: currentSettings.apiKey, query });
+      position = await geocodeLocation({ apiKey: currentSettings.apiKey, query, language: languageSelect.value });
       locationLabel = position.formattedAddress || query;
     } else {
       setStatus('search-status', '現在地を取得しています...');
@@ -557,7 +601,10 @@ async function runSearch(override) {
       radiusMeters,
       maxCount,
       genre,
+      language: languageSelect.value,
+      region: regionSelect.value,
     });
+    currentResultsLanguage = normalizeLanguage(languageSelect.value);
 
     setStatus('search-status', '各スポットの情報を補完しています...');
     // Wikipedia は補足情報。1件の失敗・遅延が検索全体を止めないよう、個別に失敗を吸収する。
@@ -565,7 +612,8 @@ async function runSearch(override) {
       places.map((place) =>
         fetchWikipediaExtract(
           place.displayName?.text,
-          place.location ? { lat: place.location.latitude, lng: place.location.longitude } : null
+          place.location ? { lat: place.location.latitude, lng: place.location.longitude } : null,
+          { lang: currentResultsLanguage }
         ).catch(() => null)
       )
     );
@@ -604,6 +652,8 @@ async function runSearch(override) {
         genre,
         locationLabel,
         places: currentPlaces,
+        region: regionSelect.value,
+        language: languageSelect.value,
       })
         .then(refreshHistory)
         .catch((err) => {

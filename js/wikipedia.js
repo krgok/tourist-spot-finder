@@ -100,14 +100,15 @@ async function fetchVerifiedByLocation(lang, name, location, fetchImpl = fetch) 
   return fetchExtractByTitle(lang, best.title, fetchImpl);
 }
 
-export async function fetchWikipediaExtract(name, location, { fetchImpl = globalThis.fetch } = {}) {
+export async function fetchWikipediaExtract(name, location, { fetchImpl = globalThis.fetch, lang: preferred = 'ja' } = {}) {
   if (!name || !location || !isValidLatLng(location.lat, location.lng)) return null;
 
   // アプリのUI・説明文テンプレートは日本語固定のため、要約文が英語だらけにならないよう
   // ブラウザの言語設定に関わらず常に日本語版を最優先で試し、見つからない場合のみ
   // ブラウザの言語→英語版の順にフォールバックする。
   const preferredLang = getPreferredLanguageCode();
-  const langsToTry = ['ja', preferredLang, 'en'].filter((lang, index, arr) => arr.indexOf(lang) === index);
+  // 表示言語の版を最優先にし、なければ日本語 → ブラウザの言語 → 英語の順に探す。
+  const langsToTry = [preferred, 'ja', preferredLang, 'en'].filter((lang, index, arr) => /^[a-z]{2,3}$/.test(lang) && arr.indexOf(lang) === index);
 
   for (const lang of langsToTry) {
     const result = await fetchVerifiedByLocation(lang, name, location, fetchImpl);

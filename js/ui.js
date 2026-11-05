@@ -17,7 +17,7 @@ function showEmptyMessage(container, text) {
   container.replaceChildren(p);
 }
 
-export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited, getDirectionsUrl } = {}) {
+export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, onRouteClick, isFavorited, getDirectionsUrl, lang } = {}) {
   const container = document.getElementById('results-list');
   container.replaceChildren();
 
@@ -32,7 +32,7 @@ export function renderResults(places, apiKey, { onCardClick, onFavoriteToggle, o
     card.dataset.index = String(index);
 
     const photoUrl = buildPhotoUrl(place.photos?.[0], apiKey);
-    const description = buildDescription(place);
+    const description = buildDescription(place, { lang });
     const name = place.displayName?.text || '名称不明';
 
     // 写真がない場所では、空の枠を出さない(スマホで横幅を無駄にしないため)。

@@ -83,5 +83,6 @@ test('buildHistoryRow: 結果は最大20件に切り詰め、メタは小さく�
 test('buildHistoryRow: 従来と同じ形(place_id / display_name / rating / location)で保存する', () => {
   const row = buildHistoryRow({ lat: 1, lng: 2, radiusMeters: 1000, maxCount: 5, places: [fullPlace()], genre: 'sightseeing', locationLabel: '現在地' });
   assert.deepEqual(Object.keys(row.results[0]), ['place_id', 'display_name', 'rating', 'location']);
-  assert.deepEqual(row.meta, { genre: 'sightseeing', locationLabel: '現在地' });
+  // region / language を渡さない場合は、undefined のキー(JSON にすると消える)になる
+  assert.deepEqual(JSON.parse(JSON.stringify(row.meta)), { genre: 'sightseeing', locationLabel: '現在地' });
 });
