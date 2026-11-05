@@ -106,6 +106,70 @@ export const GENRES = {
   },
 };
 
+// タイ向けのジャンル。Places API (New) のタイプ名(Table A)に基づく。
+// 注意: shopping_mall / market / hindu_temple は、この環境から Google の資料に届かず
+// タイプ名を公式の一覧で確認できていない。実機で各ジャンルを一度試し、
+// 「Unsupported types」エラーが出る場合は該当ジャンルの includedPrimaryTypes を直す。
+Object.assign(GENRES, {
+  temple_th: {
+    label: '寺院',
+    description: '寺院(ワット)・ヒンドゥー寺院など、歴史ある信仰の場を検索します。',
+    includedPrimaryTypes: ['buddhist_temple', 'hindu_temple'],
+    allowedTypes: ['buddhist_temple', 'hindu_temple', 'place_of_worship'],
+    excludedTypes: [],
+    favoriteCategory: 'tourist_attraction',
+  },
+  market: {
+    label: '市場・マーケット',
+    description: '市場・マーケットなど、地元の雰囲気を楽しめる場所を検索します。',
+    includedPrimaryTypes: ['market'],
+    allowedTypes: ['market'],
+    excludedTypes: [],
+    favoriteCategory: 'other',
+  },
+  mall: {
+    label: 'ショッピングモール',
+    description: 'ショッピングモールなど、冷房の効いた屋内で過ごせる場所を検索します(暑い日・雨の日向け)。',
+    includedPrimaryTypes: ['shopping_mall'],
+    allowedTypes: ['shopping_mall'],
+    excludedTypes: [],
+    indoor: true,
+    favoriteCategory: 'other',
+  },
+  spa: {
+    label: 'マッサージ・スパ',
+    description: 'マッサージ・スパなど、ゆっくり休める場所を検索します。',
+    includedPrimaryTypes: ['spa'],
+    allowedTypes: ['spa'],
+    excludedTypes: [],
+    indoor: true,
+    favoriteCategory: 'other',
+  },
+});
+
+// 地域プリセット。地域ごとに、選べるジャンルと Places API の regionCode を切り替える。
+export const REGIONS = {
+  jp: {
+    label: '日本',
+    regionCode: 'JP',
+    genreKeys: ['sightseeing', 'dining', 'kids', 'cafe', 'work', 'onsen', 'shrine_temple', 'museum'],
+  },
+  th: {
+    label: 'タイ(バンコク)',
+    regionCode: 'TH',
+    genreKeys: ['sightseeing', 'dining', 'kids', 'cafe', 'temple_th', 'market', 'mall', 'spa', 'museum'],
+  },
+};
+export const DEFAULT_REGION = 'jp';
+
+// 施設名・説明・口コミを取得する言語(画面の文言は日本語のまま)。
+export const LANGUAGES = {
+  ja: { label: '日本語' },
+  en: { label: 'English' },
+  th: { label: 'ไทย' },
+};
+export const DEFAULT_LANGUAGE = 'ja';
+
 // 検索結果の並び替え基準。結果はすでに取得済みのプールから選ばれているため、
 // 並び替えの切り替えはAPI再呼び出し不要のクライアント処理。
 export const SORT_OPTIONS = {

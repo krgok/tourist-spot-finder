@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { GENRES, SORT_OPTIONS, TRAVEL_MODES } from '../js/config.js';
+import { GENRES, SORT_OPTIONS, TRAVEL_MODES, REGIONS, LANGUAGES, DEFAULT_REGION } from '../js/config.js';
 
 test('GENRES: 必須項目があり、リクエスト用の型に place_of_worship を使っていない', () => {
   for (const [key, g] of Object.entries(GENRES)) {
@@ -22,7 +22,10 @@ test('index.html: ジャンル・並び替え・移動手段の選択肢が conf
     const m = html.match(new RegExp(`<select id="${id}">([\\s\\S]*?)</select>`));
     return [...m[1].matchAll(/value="([^"]+)"/g)].map((x) => x[1]).sort();
   };
-  assert.deepEqual(optionValues('genre-select'), Object.keys(GENRES).sort());
+  // ジャンルの選択肢は app.js が地域に応じて組み立てる。HTML の初期値は既定の地域の一覧と一致させる。
+  assert.deepEqual(optionValues('genre-select'), [...REGIONS[DEFAULT_REGION].genreKeys].sort());
+  assert.deepEqual(optionValues('region-select'), Object.keys(REGIONS).sort());
+  assert.deepEqual(optionValues('language-select'), Object.keys(LANGUAGES).sort());
   assert.deepEqual(optionValues('sort-select'), Object.keys(SORT_OPTIONS).sort());
   assert.deepEqual(optionValues('travel-mode-select'), Object.keys(TRAVEL_MODES).sort());
 });

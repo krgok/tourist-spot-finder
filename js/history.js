@@ -1,10 +1,10 @@
 import { supabase } from './supabaseClient.js?v=20260708-4';
 import { buildHistoryRow } from './records.js?v=20260708-4';
 
-export async function recordSearch({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel }) {
+export async function recordSearch({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel, region, language }) {
   const { error } = await supabase
     .from('search_history')
-    .insert(buildHistoryRow({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel }));
+    .insert(buildHistoryRow({ lat, lng, radiusMeters, maxCount, places, genre, locationLabel, region, language }));
 
   if (error) throw new Error('検索履歴の保存に失敗しました: ' + error.message);
 }

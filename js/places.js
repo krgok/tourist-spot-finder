@@ -1,11 +1,12 @@
-import { PLACE_FIELD_MASK, GENRES, RANKING } from './config.js?v=20260708-4';
+import { PLACE_FIELD_MASK, GENRES, RANKING, REGIONS } from './config.js?v=20260708-4';
 import { postGoogleApi } from './http.js?v=20260708-4';
 import { clampSearchParams } from './params.js?v=20260708-4';
+import { normalizeLanguage, normalizeRegion } from './region.js?v=20260708-4';
 import { isValidLatLng } from './validate.js?v=20260708-4';
 
-// アプリのUIは日本語固定のため、Places APIへのリクエストも常に日本語で行う。
-// languageCodeをブラウザ言語に連動させていた頃は、editorialSummaryやレビューが
-// 英語のまま返ってきて説明文に混ざる問題があった。
+// Places API へ要求する言語は、画面で選んだ「表示言語」(既定は日本語)。
+// ブラウザの言語には連動させない(連動させていた頃、editorialSummary やレビューが
+// 意図しない言語で返って説明文に混ざる問題があった)。
 const REQUEST_LANGUAGE_CODE = 'ja';
 
 // Nearby Searchの最大取得件数(20)を常に要求し、クライアント側のジャンル再照合・
@@ -112,12 +113,13 @@ export function applyQualityFilter(places, genreConfig) {
 }
 
 // Nearby Search のリクエスト本文(通信を含まない。テスト用に分離)。
-export function buildNearbyRequestBody({ lat, lng, radiusMeters, genreConfig }) {
+export function buildNearbyRequestBody({ lat, lng, radiusMeters, genreConfig, languageCode = REQUEST_LANGUAGE_CODE, regionCode }) {
   return {
     includedPrimaryTypes: genreConfig.includedPrimaryTypes,
     maxResultCount: FETCH_POOL_SIZE,
     rankPreference: 'POPULARITY',
-    languageCode: REQUEST_LANGUAGE_CODE,
+    languageCode,
+    ...(regionCode ? { regionCode } : {}),
     locationRestriction: {
       circle: {
         center: { latitude: lat, longitude: lng },
@@ -134,6 +136,8 @@ export async function searchNearbyTouristSpots({
   radiusMeters: rawRadius,
   maxCount: rawMaxCount,
   genre,
+  language,
+  region,
   fetchImpl,
 }) {
   if (!isValidLatLng(lat, lng)) {
@@ -147,7 +151,14 @@ export async function searchNearbyTouristSpots({
     url: 'https://places.googleapis.com/v1/places:searchNearby',
     apiKey,
     fieldMask: PLACE_FIELD_MASK,
-    body: buildNearbyRequestBody({ lat, lng, radiusMeters, genreConfig }),
+    body: buildNearbyRequestBody({
+      lat,
+      lng,
+      radiusMeters,
+      genreConfig,
+      languageCode: normalizeLanguage(language),
+      regionCode: REGIONS[normalizeRegion(region)].regionCode,
+    }),
     apiLabel: 'Places API (New)',
     fetchImpl,
   });
@@ -165,7 +176,7 @@ export async function searchNearbyTouristSpots({
   return { places: ranked, relaxed, poolSize: rawPlaces.length, matchedSize: genreMatched.length };
 }
 
-export async function geocodeLocation({ apiKey, query, fetchImpl }) {
+export async function geocodeLocation({ apiKey, query, language, fetchImpl }) {
   const text = String(query ?? '').trim().slice(0, 200);
   if (!text) throw new Error('検索したい場所を入力してください。');
 
@@ -173,7 +184,7 @@ export async function geocodeLocation({ apiKey, query, fetchImpl }) {
     url: 'https://places.googleapis.com/v1/places:searchText',
     apiKey,
     fieldMask: 'places.location,places.formattedAddress,places.displayName',
-    body: { textQuery: text, languageCode: REQUEST_LANGUAGE_CODE, maxResultCount: 1 },
+    body: { textQuery: text, languageCode: normalizeLanguage(language), maxResultCount: 1 },
     apiLabel: 'Places API (New)',
     fetchImpl,
   });
