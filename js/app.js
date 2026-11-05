@@ -10,7 +10,8 @@ import { normalizeRegion, normalizeLanguage, guessRegion, genreKeysFor, genreFor
 import { storageGet, storageSet } from './storage.js?v=20260708-4';
 import { normalizeForUi, clampSearchParams, isOneOf } from './params.js?v=20260708-4';
 import { isValidLatLng } from './validate.js?v=20260708-4';
-import { addFavorite, removeFavorite, listFavorites } from './favorites.js?v=20260708-4';
+import { addFavorite, removeFavorite, listFavorites, updateFavorite } from './favorites.js?v=20260708-4';
+import { buildFavoritePatch, filterFavorites } from './favoriteNotes.js?v=20260708-4';
 import { recordSearch, listHistory, deleteHistoryEntry } from './history.js?v=20260708-4';
 import { fetchRoute } from './routes.js?v=20260708-4';
 import { formatDuration } from './format.js?v=20260708-4';
@@ -281,6 +282,26 @@ function isFavorited(placeId) {
   return favoritesCache.some((fav) => fav.place_id === placeId);
 }
 
+const favoritesFilter = document.getElementById('favorites-filter');
+favoritesFilter.addEventListener('change', renderFavoritesList);
+
+function renderFavoritesList() {
+  renderFavorites(filterFavorites(favoritesCache, favoritesFilter.value), {
+    onRemove: handleRemoveFavorite,
+    onSearchNear: handleFavoriteSearchNear,
+    onUpdate: handleUpdateFavorite,
+  });
+}
+
+// メモ・訪問済みの保存。失敗は編集フォームに表示するため、例外をそのまま呼び出し元(フォーム)へ返す。
+async function handleUpdateFavorite(fav, values) {
+  const result = buildFavoritePatch(values);
+  if (!result.ok) throw new Error(result.error);
+  await updateFavorite(fav.place_id, result.patch);
+  await refreshFavorites();
+  setStatus('favorites-status', `「${fav.display_name}」を更新しました。`, 'success');
+}
+
 async function refreshFavorites() {
   if (!currentUser) {
     favoritesCache = [];
@@ -290,7 +311,7 @@ async function refreshFavorites() {
   }
   try {
     favoritesCache = await listFavorites();
-    renderFavorites(favoritesCache, { onRemove: handleRemoveFavorite, onSearchNear: handleFavoriteSearchNear });
+    renderFavoritesList();
     setStatus('favorites-status', '');
     updateRouteButtons();
   } catch (err) {

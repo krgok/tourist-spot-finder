@@ -3,6 +3,7 @@ import { buildDescription } from './description.js?v=20260708-4';
 import { GENRES } from './config.js?v=20260708-4';
 import { createExternalLink } from './safeUrl.js?v=20260708-4';
 import { buildPlaceUrl } from './mapsLinks.js?v=20260708-4';
+import { STATUS_LABELS, NOTE_MAX, favoriteStatus, todayLocalISO } from './favoriteNotes.js?v=20260708-4';
 
 export function setStatus(elementId, message, type = '') {
   const el = document.getElementById(elementId);
@@ -163,7 +164,88 @@ export function scrollToCard(index) {
   setTimeout(() => card.classList.remove('place-card-highlight'), 1500);
 }
 
-export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
+// メモ・訪問済みの編集フォーム(外部・利用者由来の文字列は、すべて value / textContent で扱う)
+function buildFavoriteEditor(fav, { onSave, onCancel }) {
+  const form = document.createElement('form');
+  form.className = 'fav-editor';
+  const uid = `fav-${Math.random().toString(36).slice(2, 8)}`;
+
+  const fieldset = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.textContent = '状態';
+  fieldset.appendChild(legend);
+  const radios = {};
+  Object.entries(STATUS_LABELS).forEach(([value, label]) => {
+    const l = document.createElement('label');
+    const r = document.createElement('input');
+    r.type = 'radio';
+    r.name = `${uid}-status`;
+    r.value = value;
+    r.checked = favoriteStatus(fav) === value;
+    radios[value] = r;
+    l.append(r, document.createTextNode(` ${label}`));
+    fieldset.appendChild(l);
+  });
+
+  const dateLabel = document.createElement('label');
+  dateLabel.textContent = '訪問日(任意)';
+  const date = document.createElement('input');
+  date.type = 'date';
+  date.min = '2000-01-01';
+  date.max = todayLocalISO();
+  date.value = fav.visited_at || '';
+  dateLabel.appendChild(date);
+
+  const noteLabel = document.createElement('label');
+  noteLabel.textContent = `メモ(${NOTE_MAX}文字まで)`;
+  const note = document.createElement('textarea');
+  note.rows = 3;
+  note.maxLength = NOTE_MAX;
+  note.value = fav.note || '';
+  noteLabel.appendChild(note);
+
+  const error = document.createElement('p');
+  error.className = 'status-msg error';
+  error.setAttribute('role', 'alert');
+
+  const buttons = document.createElement('div');
+  buttons.className = 'editor-buttons';
+  const save = document.createElement('button');
+  save.type = 'submit';
+  save.className = 'btn btn-small btn-primary';
+  save.textContent = '保存';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn btn-small';
+  cancel.textContent = 'キャンセル';
+  cancel.addEventListener('click', () => onCancel());
+  buttons.append(save, cancel);
+
+  const syncDate = () => dateLabel.classList.toggle('hidden', !radios.visited.checked);
+  Object.values(radios).forEach((r) => r.addEventListener('change', syncDate));
+  syncDate();
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    save.disabled = true;
+    error.textContent = '';
+    try {
+      await onSave({
+        status: radios.visited.checked ? 'visited' : 'want',
+        visitedAt: date.value,
+        note: note.value,
+      });
+    } catch (err) {
+      error.textContent = err.message;
+      save.disabled = false;
+    }
+  });
+
+  form.append(fieldset, dateLabel, noteLabel, error, buttons);
+  return form;
+}
+
+export function renderFavorites(favorites, { onRemove, onSearchNear, onUpdate } = {}) {
   const container = document.getElementById('favorites-list');
   container.replaceChildren();
 
@@ -191,6 +273,18 @@ export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
     );
     if (mapLink) info.appendChild(mapLink);
 
+    const status = favoriteStatus(fav);
+    const statusEl = document.createElement('p');
+    statusEl.className = `fav-status ${status}`;
+    statusEl.textContent = STATUS_LABELS[status] + (status === 'visited' && fav.visited_at ? `(${fav.visited_at})` : '');
+    info.appendChild(statusEl);
+    if (fav.note) {
+      const noteEl = document.createElement('p');
+      noteEl.className = 'fav-note';
+      noteEl.textContent = fav.note;
+      info.appendChild(noteEl);
+    }
+
     const buttonsEl = document.createElement('div');
     buttonsEl.className = 'side-item-buttons';
 
@@ -202,6 +296,34 @@ export function renderFavorites(favorites, { onRemove, onSearchNear } = {}) {
       searchNearBtn.addEventListener('click', () => onSearchNear?.(fav));
       buttonsEl.appendChild(searchNearBtn);
     }
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-small';
+    editBtn.type = 'button';
+    editBtn.textContent = 'メモ・訪問済み';
+    editBtn.setAttribute('aria-label', `${fav.display_name}のメモ・訪問済みを編集`);
+    editBtn.setAttribute('aria-expanded', 'false');
+    let editor = null;
+    editBtn.addEventListener('click', () => {
+      if (editor) {
+        editor.remove();
+        editor = null;
+        editBtn.setAttribute('aria-expanded', 'false');
+        return;
+      }
+      editor = buildFavoriteEditor(fav, {
+        onSave: (values) => onUpdate?.(fav, values),
+        onCancel: () => {
+          editor?.remove();
+          editor = null;
+          editBtn.setAttribute('aria-expanded', 'false');
+        },
+      });
+      item.appendChild(editor);
+      editBtn.setAttribute('aria-expanded', 'true');
+      editor.querySelector('textarea')?.focus();
+    });
+    buttonsEl.appendChild(editBtn);
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'btn btn-small';

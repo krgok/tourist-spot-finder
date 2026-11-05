@@ -198,6 +198,14 @@
   <section id="favorites-panel" class="panel">
     <h2>お気に入り</h2>
     <p class="hint">ログインすると、複数端末で共有されるお気に入りを保存できます。</p>
+    <div class="results-toolbar">
+      <label for="favorites-filter">表示</label>
+      <select id="favorites-filter">
+        <option value="all" selected>すべて</option>
+        <option value="want">行きたい</option>
+        <option value="visited">訪問済み</option>
+      </select>
+    </div>
     <div class="results-toolbar results-actions">
       <button id="fav-open-route-btn" class="btn btn-small" type="button" disabled>Google マップで順に回る</button>
       <button id="fav-share-btn" class="btn btn-small" type="button" disabled>共有</button>
