@@ -44,7 +44,10 @@ export class MapController {
     this.routePolyline = null;
   }
 
-  async init(apiKey) {
+  async init(apiKey, { onAuthFailure } = {}) {
+    // キーの制限(リファラー・API の有効化)で Google に拒否された場合に呼ばれる公式のコールバック。
+    // 拒否されても importLibrary は成功するため、これが無いと「地図が灰色のまま」で原因が分からない。
+    window.gm_authFailure = () => onAuthFailure?.();
     await loadMapsLibrary(apiKey);
     const { Map, InfoWindow } = await google.maps.importLibrary('maps');
     const markerLib = await google.maps.importLibrary('marker');

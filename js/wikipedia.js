@@ -1,4 +1,5 @@
 import { getPreferredLanguageCode } from './config.js?v=20260708-4';
+import { isValidLatLng } from './validate.js?v=20260708-4';
 
 const WIKIPEDIA_TIMEOUT_MS = 5000;
 
@@ -33,10 +34,10 @@ export function nameSimilarity(a, b) {
   return common / Math.max(na.length, nb.length);
 }
 
-async function geosearchWikipedia(lang, lat, lng) {
+async function geosearchWikipedia(lang, lat, lng, fetchImpl = fetch) {
   const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lng}&gsradius=${GEO_RADIUS_METERS}&gslimit=10&format=json&origin=*`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS) });
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS) });
     if (!res.ok) return [];
     const data = await res.json();
     return data?.query?.geosearch || [];
@@ -45,24 +46,29 @@ async function geosearchWikipedia(lang, lat, lng) {
   }
 }
 
-async function fetchExtractByTitle(lang, title) {
+async function fetchExtractByTitle(lang, title, fetchImpl = fetch) {
   const extractUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&titles=${encodeURIComponent(
     title
   )}&format=json&origin=*`;
-  const extractRes = await fetch(extractUrl, { signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS) });
-  if (!extractRes.ok) return null;
-  const extractData = await extractRes.json();
-  const pages = extractData?.query?.pages;
-  if (!pages) return null;
-  const page = Object.values(pages)[0];
-  const extract = page?.extract?.trim();
-  if (!extract) return null;
+  try {
+    const extractRes = await fetchImpl(extractUrl, { signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS) });
+    if (!extractRes.ok) return null;
+    const extractData = await extractRes.json();
+    const pages = extractData?.query?.pages;
+    if (!pages) return null;
+    const page = Object.values(pages)[0];
+    const extract = page?.extract?.trim();
+    if (!extract) return null;
 
-  return {
-    title,
-    extract,
-    url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`,
-  };
+    return {
+      title,
+      extract,
+      url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`,
+    };
+  } catch {
+    // Wikipedia は補足情報にすぎない。タイムアウトや通信失敗で検索結果全体を失敗させない。
+    return null;
+  }
 }
 
 // geosearchの候補から、名前と距離の両面で採用できる記事を1件選ぶ(なければnull)。
@@ -82,20 +88,20 @@ export function pickBestCandidate(candidates, name) {
   return best;
 }
 
-async function fetchVerifiedByLocation(lang, name, location) {
+async function fetchVerifiedByLocation(lang, name, location, fetchImpl = fetch) {
   if (!location) return null;
 
-  const candidates = await geosearchWikipedia(lang, location.lat, location.lng);
+  const candidates = await geosearchWikipedia(lang, location.lat, location.lng, fetchImpl);
   if (!candidates.length) return null;
 
   const best = pickBestCandidate(candidates, name);
   if (!best) return null;
 
-  return fetchExtractByTitle(lang, best.title);
+  return fetchExtractByTitle(lang, best.title, fetchImpl);
 }
 
-export async function fetchWikipediaExtract(name, location) {
-  if (!name || !location) return null;
+export async function fetchWikipediaExtract(name, location, { fetchImpl = globalThis.fetch } = {}) {
+  if (!name || !location || !isValidLatLng(location.lat, location.lng)) return null;
 
   // アプリのUI・説明文テンプレートは日本語固定のため、要約文が英語だらけにならないよう
   // ブラウザの言語設定に関わらず常に日本語版を最優先で試し、見つからない場合のみ
@@ -104,7 +110,7 @@ export async function fetchWikipediaExtract(name, location) {
   const langsToTry = ['ja', preferredLang, 'en'].filter((lang, index, arr) => arr.indexOf(lang) === index);
 
   for (const lang of langsToTry) {
-    const result = await fetchVerifiedByLocation(lang, name, location);
+    const result = await fetchVerifiedByLocation(lang, name, location, fetchImpl);
     if (result) return result;
   }
   return null;

@@ -141,5 +141,6 @@ export const LOW_ACCURACY_THRESHOLD_METERS = 10000;
 
 export function getPreferredLanguageCode() {
   const lang = (navigator.language || navigator.languages?.[0] || 'en').split('-')[0].toLowerCase();
-  return lang || 'en';
+  // Wikipedia のホスト名(https://<lang>.wikipedia.org)に使うため、言語コードの形式だけ許可する。
+  return /^[a-z]{2,3}$/.test(lang) ? lang : 'en';
 }
